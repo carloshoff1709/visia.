@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produção Visia — Menu</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(160deg,#0F1626 0%,#1A2540 100%);color:#fff;min-height:100vh;padding:0;}
+.top{text-align:center;padding:36px 20px 10px;}
+.top h1{font-size:26px;font-weight:800;letter-spacing:.5px;}
+.top p{font-size:13px;color:#9CA3AF;margin-top:6px;}
+.wrap{max-width:940px;margin:0 auto;padding:20px 18px 50px;}
+.sec-tit{font-size:12px;font-weight:700;color:#6B8CB8;letter-spacing:.1em;text-transform:uppercase;margin:26px 6px 12px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.card{display:block;text-decoration:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:22px;transition:transform .12s,background .2s;position:relative;overflow:hidden;}
+.card:hover{transform:translateY(-3px);background:rgba(255,255,255,.09);}
+.card .ico{font-size:34px;margin-bottom:10px;display:block;}
+.card .nome{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;}
+.card .desc{font-size:12px;color:#9CA3AF;line-height:1.4;}
+.card .bar{position:absolute;top:0;left:0;width:5px;height:100%;}
+.b-mont{background:#1D9E75;} .b-acab{background:#EF9F27;} .b-uni{background:#8B5CF6;}
+.b-conf{background:#185FA5;} .b-cad{background:#E24B4A;} .b-qr{background:#0EA5A5;}
+.rodape{text-align:center;font-size:11px;color:#4B5563;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🏭 Produção Visia</h1>
+  <p>Painel central — selecione a área</p>
+</div>
+
+<div class="wrap">
+
+  <div class="sec-tit">Produção (chão de fábrica)</div>
+  <div class="grid">
+    <a class="card" href="montagem.html">
+      <span class="bar b-mont"></span>
+      <span class="ico">🔧</span>
+      <div class="nome">Montagem</div>
+      <div class="desc">Estações M1–M5. Programação, processos e conclusão da montagem.</div>
+    </a>
+    <a class="card" href="acabamento.html">
+      <span class="bar b-acab"></span>
+      <span class="ico">🎨</span>
+      <div class="nome">Acabamento</div>
+      <div class="desc">Estações E1–E16. Fila de acabamento, processos e liberação.</div>
+    </a>
+    <a class="card" href="producao.html">
+      <span class="bar b-uni"></span>
+      <span class="ico">🖥️</span>
+      <div class="nome">Painel Unificado</div>
+      <div class="desc">Montagem + Acabamento numa tela só (alterna sozinho).</div>
+    </a>
+  </div>
+
+  <div class="sec-tit">Estoque / Almoxarifado</div>
+  <div class="grid">
+    <a class="card" href="conferencia.html">
+      <span class="bar b-conf"></span>
+      <span class="ico">📦</span>
+      <div class="nome">Conferência de Peças</div>
+      <div class="desc">Marcar peças disponível/faltando, setor e varal. Gerar QR.</div>
+    </a>
+    <a class="card" href="leitor.html">
+      <span class="bar b-qr"></span>
+      <span class="ico">📷</span>
+      <div class="nome">Leitor de QR</div>
+      <div class="desc">Câmera por setor (Montagem/CAD/GRC). Escaneia e marca a peça.</div>
+    </a>
+  </div>
+
+  <div class="sec-tit">Administração</div>
+  <div class="grid">
+    <a class="card" href="cadastro.html">
+      <span class="bar b-cad"></span>
+      <span class="ico">🗂️</span>
+      <div class="nome">Cadastro</div>
+      <div class="desc">Cadastrar, editar e excluir produtos e peças.</div>
+    </a>
+  </div>
+
+  <div class="rodape">Sistema de gestão de produção · Visia</div>
+</div>
+</body>
+</html>
