@@ -110,7 +110,10 @@ tr:hover td{background:#F7F9FB;}
             <div class="fld"><label>Setor que fabrica</label>
               <select id="np-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select></div>
             <div class="fld"><label>Data prev. fabricação</label><input id="np-datafab" type="date"></div>
-            <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira a peça (CAD/GRC)</label><input id="np-vira" placeholder="Ex: Piso CAD ou Teto GRC"></div>
+            <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira → ID da peça</label><input id="np-vira" placeholder="Ex: Piso CAD"></div>
+            <div class="fld" id="fld-np-viranome" style="display:none;"><label>Vira → Nome</label><input id="np-viranome" placeholder="Ex: Piso CAD 6x3m"></div>
+            <div class="fld" id="fld-np-viraserial" style="display:none;"><label>Vira → Serial</label><input id="np-viraserial" placeholder="Ex: 789012345"></div>
+            <div class="fld" id="fld-np-viradata" style="display:none;"><label>Vira → Data fab.</label><input id="np-viradata" type="date"></div>
           </div>
           <button type="button" class="btn" onclick="adicionarPecaCascata()" style="background:#185FA5;">+ Adicionar peça</button>
           <div class="hint" style="margin-top:6px;">Cada peça adicionada é cadastrada na aba Peças ao salvar o produto. Repita o ID para exigir mais de uma unidade.</div>
@@ -142,7 +145,10 @@ tr:hover td{background:#F7F9FB;}
         <select id="pc-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select>
       </div>
       <div class="fld"><label>Data prev. fabricação</label><input id="pc-datafab" type="date"></div>
-      <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira a peça (CAD/GRC)</label><input id="pc-vira" placeholder="Ex: Piso CAD ou Teto GRC"></div>
+      <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira → ID da peça</label><input id="pc-vira" placeholder="Ex: Piso CAD"></div>
+      <div class="fld" id="fld-pc-viranome" style="display:none;"><label>Vira → Nome da peça</label><input id="pc-viranome" placeholder="Ex: Piso CAD 6x3m"></div>
+      <div class="fld" id="fld-pc-viraserial" style="display:none;"><label>Vira → Serial</label><input id="pc-viraserial" placeholder="Ex: 789012345"></div>
+      <div class="fld" id="fld-pc-viradata" style="display:none;"><label>Vira → Data fabricação</label><input id="pc-viradata" type="date"></div>
       <div class="fld"><label>Status</label>
         <select id="pc-status"><option value="Faltando">Faltando</option><option value="Disponivel">Disponivel</option></select>
       </div>
@@ -333,6 +339,9 @@ function processarLinhasImport(linhas){
         serial:g(['serial','codigo_barras','serial (codigo de barras)']),
         setor_fabrica:(function(v){ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); })(g(['setor_fabrica','setorfabrica','setor que fabrica'])),
         vira_peca:g(['vira_peca','virapeca','vira a peca','vira a peça']),
+        vira_nome:g(['vira_nome','viranome']),
+        vira_serial:g(['vira_serial','viraserial']),
+        vira_data:normalizarData(g(['vira_data','viradata'])),
         data_fabricacao:normalizarData(g(['data_fabricacao','datafabricacao','data prev. fabricacao']))
       });
     }
@@ -562,7 +571,8 @@ async function carregarPecas(){
   tb.innerHTML=lista.map(p=>{
     const disp=p.status==='Disponivel';
     const nome=(p.nome_peca||'').replace(/"/g,'&quot;');
-    const viraEsc=(p.vira_peca||'').replace(/'/g,"\\'");
+    const esc=s=>String(s||'').replace(/'/g,"\\'");
+    const viraEsc=esc(p.vira_peca), vnEsc=esc(p.vira_nome), vsEsc=esc(p.vira_serial), vdEsc=esc(p.vira_data);
     return `<tr>
       <td><strong>${p.id_peca}</strong></td>
       <td>${p.nome_peca||''}</td>
@@ -571,7 +581,7 @@ async function carregarPecas(){
       <td style="font-size:11px;color:#9CA3AF;">${p.atualizado_em||'—'}</td>
       <td style="font-size:11px;color:#6B7280;">${p.atualizado_por||'—'}</td>
       <td><div class="acts">
-        <button class="btn sec sm" onclick="editarPeca(${p.linha},'${p.id_peca}','${nome}','${p.status}','${p.serial||''}','${p.setor_fabrica||''}','${p.data_fabricacao||''}','${viraEsc}')">Editar</button>
+        <button class="btn sec sm" onclick="editarPeca(${p.linha},'${p.id_peca}','${nome}','${p.status}','${p.serial||''}','${p.setor_fabrica||''}','${p.data_fabricacao||''}','${viraEsc}','${vnEsc}','${vsEsc}','${vdEsc}')">Editar</button>
         <button class="btn del sm" onclick="excluirPeca(${p.linha},'${p.id_peca}')">Excluir</button>
       </div></td>
     </tr>`;
@@ -589,16 +599,20 @@ async function salvarPeca(){
   const setorfab=document.getElementById('pc-setorfab').value;
   const datafab=isoParaBR(document.getElementById('pc-datafab').value);
   const vira=document.getElementById('pc-vira').value.trim();
+  const viranome=document.getElementById('pc-viranome').value.trim();
+  const viraserial=document.getElementById('pc-viraserial').value.trim();
+  const viradata=isoParaBR(document.getElementById('pc-viradata').value);
   msg('load','Salvando…');
   const r=await api('action=salvar_peca&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_peca='+encodeURIComponent(id)
     +'&nome_peca='+encodeURIComponent(nome)+'&serial='+encodeURIComponent(serial)+'&status='+encodeURIComponent(status)
     +'&setor_fabrica='+encodeURIComponent(setorfab)+'&data_fabricacao='+encodeURIComponent(datafab)
-    +'&vira_peca='+encodeURIComponent(vira)
+    +'&vira_peca='+encodeURIComponent(vira)+'&vira_nome='+encodeURIComponent(viranome)
+    +'&vira_serial='+encodeURIComponent(viraserial)+'&vira_data='+encodeURIComponent(viradata)
     +(_linhaEditando?'&linha='+_linhaEditando:''));
   if(r&&r.ok){ msg('ok','Peça '+(r.acao||'salva')+'!'); limparFormPeca(); carregarPecas(); }
   else{ msg('err','Falha ao salvar peça.'); }
 }
-function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira){
+function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira,viranome,viraserial,viradata){
   _linhaEditando=Number(linha)||0;
   document.getElementById('pc-id').value=id;
   document.getElementById('pc-nome').value=nome;
@@ -607,6 +621,9 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira){
   document.getElementById('pc-setorfab').value=setorfab||'';
   document.getElementById('pc-datafab').value=brParaIso(datafab||'');
   document.getElementById('pc-vira').value=vira||'';
+  document.getElementById('pc-viranome').value=viranome||'';
+  document.getElementById('pc-viraserial').value=viraserial||'';
+  document.getElementById('pc-viradata').value=brParaIso(viradata||'');
   toggleViraPeca();
   document.getElementById('pc-id').setAttribute('readonly','true');
   document.getElementById('form-peca-titulo').textContent='✏️ EDITANDO '+id+' (linha '+_linhaEditando+')';
@@ -615,7 +632,7 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira){
 }
 function limparFormPeca(){
   _linhaEditando=0;
-  ['pc-id','pc-nome','pc-serial','pc-datafab','pc-vira'].forEach(i=>document.getElementById(i).value='');
+  ['pc-id','pc-nome','pc-serial','pc-datafab','pc-vira','pc-viranome','pc-viraserial','pc-viradata'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('pc-status').value='Faltando';
   document.getElementById('pc-setorfab').value='';
   toggleViraPeca();
@@ -636,9 +653,13 @@ async function excluirPeca(linha,id){
 function toggleViraPeca(){
   const ehCelula=v=>String(v||'').trim().toLowerCase()==='célula de estruturas';
   const np=document.getElementById('np-setorfab'), pc=document.getElementById('pc-setorfab');
-  const fnp=document.getElementById('fld-np-vira'), fpc=document.getElementById('fld-pc-vira');
-  if(np&&fnp) fnp.style.display=ehCelula(np.value)?'':'none';
-  if(pc&&fpc) fpc.style.display=ehCelula(pc.value)?'':'none';
+  const mostraNp=np&&ehCelula(np.value), mostraPc=pc&&ehCelula(pc.value);
+  ['fld-np-vira','fld-np-viranome','fld-np-viraserial','fld-np-viradata'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display=mostraNp?'':'none';
+  });
+  ['fld-pc-vira','fld-pc-viranome','fld-pc-viraserial','fld-pc-viradata'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display=mostraPc?'':'none';
+  });
 }
 document.getElementById('np-setorfab').addEventListener('change',toggleViraPeca);
 document.getElementById('pc-setorfab').addEventListener('change',toggleViraPeca);
