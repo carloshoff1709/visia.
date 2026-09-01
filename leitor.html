@@ -18,7 +18,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .top{padding:14px 18px;text-align:center;background:#1A2540;}
 .top h1{font-size:16px;font-weight:700;}
 .setor-badge{display:inline-block;margin-top:6px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;}
-.b-cad{background:#8B5CF6;} .b-grc{background:#EF9F27;} .b-mont{background:#1D9E75;}
+.b-cad{background:#8B5CF6;} .b-grc{background:#EF9F27;} .b-mont{background:#1D9E75;} .b-cel{background:#6D4AAE;}
 .escolha{padding:40px 20px;text-align:center;}
 .escolha h2{font-size:16px;margin-bottom:6px;}
 .escolha p{font-size:13px;color:#9CA3AF;margin-bottom:24px;}
@@ -57,6 +57,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <button class="b-mont" onclick="definirSetor('Montagem')">🏭 MONTAGEM</button>
     <button class="b-cad" onclick="definirSetor('CAD')">📐 CAD</button>
     <button class="b-grc" onclick="definirSetor('GRC')">🧱 GRC</button>
+    <button class="b-cel" onclick="definirSetor('Célula de Estruturas')">🏗️ CÉLULA DE ESTRUTURAS</button>
   </div>
 </div>
 
@@ -80,7 +81,7 @@ let ultimaLeitura={id:'',t:0};
 const urlParams=new URLSearchParams(location.search);
 if(urlParams.get('setor')){ SETOR=urlParams.get('setor'); localStorage.setItem('leitor_setor',SETOR); }
 
-function classeSetor(s){ return s==='CAD'?'b-cad':s==='GRC'?'b-grc':'b-mont'; }
+function classeSetor(s){ return s==='CAD'?'b-cad':s==='GRC'?'b-grc':(s&&s.toLowerCase()==='célula de estruturas')?'b-cel':'b-mont'; }
 function mostrarBadge(){
   document.getElementById('badge-wrap').innerHTML=`<span class="setor-badge ${classeSetor(SETOR)}">Setor: ${SETOR}</span>`;
 }
