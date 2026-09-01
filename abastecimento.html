@@ -386,15 +386,29 @@ const LOGO_LISTA='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXgAAAB4CAYAAAD4
 function montarListaTransporte(){
   const itens=[];
   MODULOS.forEach(m=>{
-    const pecasTransporte=m.pecas.filter(pc=>pc.solicitado && pc.estado!=='entregue');
-    if(pecasTransporte.length){
+    const linhasTransporte=[];
+    m.pecas.forEach(pc=>{
+      // peça normal solicitada
+      if(pc.solicitado && pc.estado!=='entregue'){
+        linhasTransporte.push({
+          id: pc.id, setor: pc.setor_fabrica||'-', fab: pc.data_fab||'-',
+          fabricada: pc.estado==='produzida', destino:''
+        });
+      }
+      // estrutura ligada, se solicitada
+      if(pc.estrutura && pc.estrutura.solicitado && pc.estrutura.estado!=='entregue'){
+        const es=pc.estrutura;
+        linhasTransporte.push({
+          id: es.id, setor: 'Célula de Estruturas', fab: es.data_fab||'-',
+          fabricada: es.estado==='produzida', destino: es.destino||es.vira_peca||''
+        });
+      }
+    });
+    if(linhasTransporte.length){
       itens.push({
         produto: m.id_produto+' - '+m.nome_produto,
         entrada: m.data_entrada||'-',
-        pecas: pecasTransporte.map(pc=>({
-          id: pc.id, setor: pc.setor_fabrica||'-', fab: pc.data_fab||'-',
-          fabricada: pc.estado==='produzida'
-        }))
+        pecas: linhasTransporte
       });
     }
   });
@@ -505,7 +519,8 @@ function renderImagemLista(){
         ctx.fillStyle='#1A2540'; ctx.font='bold 13px Arial';
         ctx.fillText(pc.id, 56, y);
         ctx.fillStyle='#6B7280'; ctx.font='12px Arial';
-        ctx.fillText('('+pc.setor+')   fab '+pc.fab+'   '+(pc.fabricada?'FABRICADA':'A FABRICAR'), 200, y);
+        const destinoTxt = pc.destino ? ('  →  '+pc.destino) : '';
+        ctx.fillText('('+pc.setor+')   fab '+pc.fab+'   '+(pc.fabricada?'FABRICADA':'A FABRICAR')+destinoTxt, 200, y);
         y+=rowH;
       });
       y+=prodGap;
