@@ -85,6 +85,7 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
   <button class="fbtn on" onclick="setFiltro('todos',this)">Todos</button>
   <button class="fbtn" onclick="setFiltro('CAD',this)">Somente CAD</button>
   <button class="fbtn" onclick="setFiltro('GRC',this)">Somente GRC</button>
+  <button class="fbtn" onclick="setFiltro('Célula de Estruturas',this)">Célula de Estruturas</button>
   <div class="legenda">
     <span class="lg"><span class="dot" style="background:#C4CDD8;"></span>A produzir</span>
     <span class="lg"><span class="dot" style="background:#1D9E75;"></span>Produzida</span>
@@ -137,7 +138,10 @@ function setFiltro(f,btn){
 }
 function pecaVisivel(pc){
   if(FILTRO==='todos') return true;
-  return (pc.setor_fabrica||'').toUpperCase()===FILTRO;
+  const f=FILTRO.trim().toUpperCase();
+  // filtro "Célula de Estruturas": mostra peças que TÊM uma estrutura ligada
+  if(f==='CÉLULA DE ESTRUTURAS') return !!pc.estrutura;
+  return (pc.setor_fabrica||'').trim().toUpperCase()===f;
 }
 
 function ajustarTamanhoCards(qtd){
@@ -168,18 +172,38 @@ function render(){
       const setorTag=pc.setor_fabrica?`<span class="psetor">${pc.setor_fabrica}</span>`:'';
       const data=pc.data_fab?`fab ${pc.data_fab}`:'';
       const podeselecionar = pc.linha && pc.estado!=='entregue';
-      return `<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
+      let html=`<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
         <span class="pdot"></span>
         <span class="pnome">${pc.id}</span>
         ${setorTag}
         <span class="pmeta">${data}</span>
       </div>`;
+      // estrutura ligada (Célula de Estruturas): aparece recuada sob a peça que ela vira
+      if(pc.estrutura){
+        const es=pc.estrutura;
+        const escls='e-'+es.estado+(es.solicitado?' solicitado '+es.estado:'');
+        const essel=(es.linha && SEL[es.linha])?' sel':'';
+        const esdata=es.data_fab?`fab ${es.data_fab}`:'';
+        const espode = es.linha && es.estado!=='entregue';
+        html+=`<div class="peca estrutura ${escls}${essel}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
+          <span class="pdot"></span>
+          <span class="pnome">↳ ${es.id}</span>
+          <span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span>
+          <span class="pmeta">${esdata} · vira ${es.vira_peca}</span>
+        </div>`;
+      }
+      return html;
     }).join('');
-    // caixa de seleção do card inteiro
-    const chk = linhasSelec.length>0
-      ? `<span class="card-chk ${todasSel?'on':(algumaSel?'partial':'')}">${todasSel?'&#10003;':(algumaSel?'&#8211;':'')}</span>`
+    // seleção do card: peças + estruturas não entregues
+    const linhasEstrut=pecasFiltradas.filter(pc=>pc.estrutura && pc.estrutura.linha && pc.estrutura.estado!=='entregue').map(pc=>pc.estrutura.linha);
+    // caixa de seleção do card inteiro (peças + estruturas)
+    const linhasTodas=linhasSelec.concat(linhasEstrut);
+    const todasSelC = linhasTodas.length>0 && linhasTodas.every(ln=>SEL[ln]);
+    const algumaSelC = linhasTodas.some(ln=>SEL[ln]);
+    const chk = linhasTodas.length>0
+      ? `<span class="card-chk ${todasSelC?'on':(algumaSelC?'partial':'')}">${todasSelC?'&#10003;':(algumaSelC?'&#8211;':'')}</span>`
       : '';
-    const headClick = linhasSelec.length>0 ? `onclick='toggleCard(${JSON.stringify(linhasSelec)})' style="cursor:pointer;"` : '';
+    const headClick = linhasTodas.length>0 ? `onclick='toggleCard(${JSON.stringify(linhasTodas)})' style="cursor:pointer;"` : '';
     return `<div class="card${concluido}">
       <div class="card-head" ${headClick}>
         <div style="display:flex;align-items:center;gap:8px;">

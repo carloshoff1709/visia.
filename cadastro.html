@@ -108,8 +108,9 @@ tr:hover td{background:#F7F9FB;}
             <div class="fld"><label>Nome da peça</label><input id="np-nome" placeholder="Ex: Stud Frame"></div>
             <div class="fld"><label>Serial (código de barras)</label><input id="np-serial" placeholder="Ex: 789012345"></div>
             <div class="fld"><label>Setor que fabrica</label>
-              <select id="np-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option></select></div>
+              <select id="np-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select></div>
             <div class="fld"><label>Data prev. fabricação</label><input id="np-datafab" type="date"></div>
+            <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira a peça (CAD/GRC)</label><input id="np-vira" placeholder="Ex: Piso CAD ou Teto GRC"></div>
           </div>
           <button type="button" class="btn" onclick="adicionarPecaCascata()" style="background:#185FA5;">+ Adicionar peça</button>
           <div class="hint" style="margin-top:6px;">Cada peça adicionada é cadastrada na aba Peças ao salvar o produto. Repita o ID para exigir mais de uma unidade.</div>
@@ -138,9 +139,10 @@ tr:hover td{background:#F7F9FB;}
       <div class="fld"><label>Nome da peça</label><input id="pc-nome" placeholder="Ex: Tubo 40x40"></div>
       <div class="fld"><label>Serial (código de barras)</label><input id="pc-serial" placeholder="Ex: 789012345"></div>
       <div class="fld"><label>Setor que fabrica</label>
-        <select id="pc-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option></select>
+        <select id="pc-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select>
       </div>
       <div class="fld"><label>Data prev. fabricação</label><input id="pc-datafab" type="date"></div>
+      <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira a peça (CAD/GRC)</label><input id="pc-vira" placeholder="Ex: Piso CAD ou Teto GRC"></div>
       <div class="fld"><label>Status</label>
         <select id="pc-status"><option value="Faltando">Faltando</option><option value="Disponivel">Disponivel</option></select>
       </div>
@@ -288,8 +290,19 @@ function lerArquivoImport(){
 function normalizarData(v){
   if(!v) return '';
   v=String(v).trim();
-  // se vier no formato ISO ou serial do Excel, tenta converter para dd/mm/aaaa
-  if(/^\d{4}-\d{2}-\d{2}/.test(v)){ const p=v.slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+  if(!v) return '';
+  const p2=n=>{ n=String(n); return n.length<2?'0'+n:n; };
+  // ISO yyyy-mm-dd
+  let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return p2(m[3])+'/'+p2(m[2])+'/'+m[1];
+  // dd/mm/aaaa ou mm/dd/aa (detecta pelo valor)
+  m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(m){
+    let d=parseInt(m[1],10), mo=parseInt(m[2],10), y=parseInt(m[3],10);
+    if(mo>12&&d<=12){ const t=d; d=mo; mo=t; } // formato americano -> troca
+    if(y<100) y+=2000;
+    return p2(d)+'/'+p2(mo)+'/'+y;
+  }
   return v;
 }
 
@@ -318,7 +331,8 @@ function processarLinhasImport(linhas){
         id_peca:idPeca,
         nome_peca:g(['nome_peca','nomepeca']),
         serial:g(['serial','codigo_barras','serial (codigo de barras)']),
-        setor_fabrica:g(['setor_fabrica','setorfabrica','setor que fabrica']).toUpperCase(),
+        setor_fabrica:(function(v){ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); })(g(['setor_fabrica','setorfabrica','setor que fabrica'])),
+        vira_peca:g(['vira_peca','virapeca','vira a peca','vira a peça']),
         data_fabricacao:normalizarData(g(['data_fabricacao','datafabricacao','data prev. fabricacao']))
       });
     }
@@ -548,6 +562,7 @@ async function carregarPecas(){
   tb.innerHTML=lista.map(p=>{
     const disp=p.status==='Disponivel';
     const nome=(p.nome_peca||'').replace(/"/g,'&quot;');
+    const viraEsc=(p.vira_peca||'').replace(/'/g,"\\'");
     return `<tr>
       <td><strong>${p.id_peca}</strong></td>
       <td>${p.nome_peca||''}</td>
@@ -556,7 +571,7 @@ async function carregarPecas(){
       <td style="font-size:11px;color:#9CA3AF;">${p.atualizado_em||'—'}</td>
       <td style="font-size:11px;color:#6B7280;">${p.atualizado_por||'—'}</td>
       <td><div class="acts">
-        <button class="btn sec sm" onclick="editarPeca(${p.linha},'${p.id_peca}','${nome}','${p.status}','${p.serial||''}','${p.setor_fabrica||''}','${p.data_fabricacao||''}')">Editar</button>
+        <button class="btn sec sm" onclick="editarPeca(${p.linha},'${p.id_peca}','${nome}','${p.status}','${p.serial||''}','${p.setor_fabrica||''}','${p.data_fabricacao||''}','${viraEsc}')">Editar</button>
         <button class="btn del sm" onclick="excluirPeca(${p.linha},'${p.id_peca}')">Excluir</button>
       </div></td>
     </tr>`;
@@ -573,15 +588,17 @@ async function salvarPeca(){
   const status=document.getElementById('pc-status').value;
   const setorfab=document.getElementById('pc-setorfab').value;
   const datafab=isoParaBR(document.getElementById('pc-datafab').value);
+  const vira=document.getElementById('pc-vira').value.trim();
   msg('load','Salvando…');
   const r=await api('action=salvar_peca&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_peca='+encodeURIComponent(id)
     +'&nome_peca='+encodeURIComponent(nome)+'&serial='+encodeURIComponent(serial)+'&status='+encodeURIComponent(status)
     +'&setor_fabrica='+encodeURIComponent(setorfab)+'&data_fabricacao='+encodeURIComponent(datafab)
+    +'&vira_peca='+encodeURIComponent(vira)
     +(_linhaEditando?'&linha='+_linhaEditando:''));
   if(r&&r.ok){ msg('ok','Peça '+(r.acao||'salva')+'!'); limparFormPeca(); carregarPecas(); }
   else{ msg('err','Falha ao salvar peça.'); }
 }
-function editarPeca(linha,id,nome,status,serial,setorfab,datafab){
+function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira){
   _linhaEditando=Number(linha)||0;
   document.getElementById('pc-id').value=id;
   document.getElementById('pc-nome').value=nome;
@@ -589,6 +606,8 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab){
   document.getElementById('pc-status').value=status||'Faltando';
   document.getElementById('pc-setorfab').value=setorfab||'';
   document.getElementById('pc-datafab').value=brParaIso(datafab||'');
+  document.getElementById('pc-vira').value=vira||'';
+  toggleViraPeca();
   document.getElementById('pc-id').setAttribute('readonly','true');
   document.getElementById('form-peca-titulo').textContent='✏️ EDITANDO '+id+' (linha '+_linhaEditando+')';
   document.getElementById('pc-cancel').classList.remove('hidden');
@@ -596,9 +615,10 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab){
 }
 function limparFormPeca(){
   _linhaEditando=0;
-  ['pc-id','pc-nome','pc-serial','pc-datafab'].forEach(i=>document.getElementById(i).value='');
+  ['pc-id','pc-nome','pc-serial','pc-datafab','pc-vira'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('pc-status').value='Faltando';
   document.getElementById('pc-setorfab').value='';
+  toggleViraPeca();
   document.getElementById('pc-id').removeAttribute('readonly');
   document.getElementById('form-peca-titulo').textContent='➕ NOVA PEÇA';
   document.getElementById('pc-cancel').classList.add('hidden');
@@ -612,6 +632,17 @@ async function excluirPeca(linha,id){
 }
 
 /* ── INIT ── */
+// mostra o campo "Vira a peça" só quando o setor é Célula de Estruturas
+function toggleViraPeca(){
+  const ehCelula=v=>String(v||'').trim().toLowerCase()==='célula de estruturas';
+  const np=document.getElementById('np-setorfab'), pc=document.getElementById('pc-setorfab');
+  const fnp=document.getElementById('fld-np-vira'), fpc=document.getElementById('fld-pc-vira');
+  if(np&&fnp) fnp.style.display=ehCelula(np.value)?'':'none';
+  if(pc&&fpc) fpc.style.display=ehCelula(pc.value)?'':'none';
+}
+document.getElementById('np-setorfab').addEventListener('change',toggleViraPeca);
+document.getElementById('pc-setorfab').addEventListener('change',toggleViraPeca);
+
 function aoLogar(){ renderCascata(); carregarProdutos(); }
 renderCascata();
 checarLogin();

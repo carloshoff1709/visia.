@@ -1,6 +1,7 @@
-﻿id_produto,nome_produto,data_programada,id_peca,nome_peca,serial,setor_fabrica,data_fabricacao
-CI-1-01,Monobloco Circulacao,24/07/2026,Piso CAD,Piso CAD 6x3m Padrao,1161922,CAD,15/07/2026
-CI-1-01,Monobloco Circulacao,24/07/2026,Teto GRC,Teto GRC 6x3m Padrao,1161963,GRC,16/07/2026
-CI-1-01,Monobloco Circulacao,24/07/2026,E-A01-CI01,Painel CAD,1171166,CAD,22/07/2026
-CI-1-02,Monobloco Circulacao,25/07/2026,Piso CAD,Piso CAD 6x3m Padrao,1161922,CAD,17/07/2026
-CI-1-02,Monobloco Circulacao,25/07/2026,Teto GRC,Teto GRC 6x3m Padrao,1161963,GRC,18/07/2026
+﻿id_produto,nome_produto,data_programada,id_peca,nome_peca,serial,setor_fabrica,data_fabricacao,vira_peca
+CI-1-01,Monobloco Circulacao,24/07/2026,Piso CAD,Piso CAD 6x3m Padrao,1161922,CAD,15/07/2026,
+CI-1-01,Monobloco Circulacao,24/07/2026,Teto GRC,Teto GRC 6x3m Padrao,1161963,GRC,16/07/2026,
+CI-1-01,Monobloco Circulacao,24/07/2026,EST-PISO-01,Estrutura do Piso,1180001,Célula de Estruturas,12/07/2026,Piso CAD
+CI-1-01,Monobloco Circulacao,24/07/2026,EST-TETO-01,Estrutura do Teto,1180002,Célula de Estruturas,12/07/2026,Teto GRC
+CI-1-01,Monobloco Circulacao,24/07/2026,E-A01-CI01,Painel CAD,1171166,CAD,22/07/2026,
+CI-1-02,Monobloco Circulacao,25/07/2026,Piso CAD,Piso CAD 6x3m Padrao,1161922,CAD,17/07/2026,
