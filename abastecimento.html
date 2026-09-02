@@ -130,6 +130,16 @@ async function api(params){
   return null;
 }
 
+// POST para dados grandes (sem limite de URL). text/plain evita o preflight CORS do Apps Script.
+async function apiPost(params){
+  try{
+    const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:params});
+    if(r.ok) return JSON.parse(await r.text());
+  }catch(_){}
+  // fallback: tenta via GET normal
+  return await api(params);
+}
+
 function setFiltro(f,btn){
   FILTRO=f;
   document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
@@ -603,13 +613,14 @@ function desenharImagemTransporte(itens, dataTransp, obs, solicitante, horaSalva
     baixar();
     // salva a lista no histórico só quando é uma geração nova (não ao regenerar do histórico)
     if(salvar){
-      try{
-        const dadosLista={data_transporte:dataTransp, observacao:obs, itens:itens};
-        api('action=salvar_lista&solicitante='+encodeURIComponent(solicitante)
-          +'&data_transporte='+encodeURIComponent(dataTransp)
-          +'&observacao='+encodeURIComponent(obs)
-          +'&dados='+encodeURIComponent(JSON.stringify(dadosLista)));
-      }catch(_){}
+      const dadosLista={data_transporte:dataTransp, observacao:obs, itens:itens};
+      const body='action=salvar_lista&solicitante='+encodeURIComponent(solicitante)
+        +'&data_transporte='+encodeURIComponent(dataTransp)
+        +'&observacao='+encodeURIComponent(obs)
+        +'&dados='+encodeURIComponent(JSON.stringify(dadosLista));
+      apiPost(body).then(r=>{
+        if(!(r&&r.ok)){ console.warn('Falha ao salvar lista no histórico'); }
+      }).catch(()=>{});
     }
   }
   logo.onload=function(){
