@@ -119,8 +119,11 @@ function onScan(texto){
   const m=texto.match(/[?&]id_peca=([^&]+)/);
   if(m) id=decodeURIComponent(m[1]);
 
-  // CODE 39 externo vem com asteriscos de início/fim (ex: *1171166*) — remove
-  id=id.replace(/^\*+/, '').replace(/\*+$/, '').trim();
+  // CODE 39 vem com asteriscos de início/fim (ex: *1161912*). Remove asteriscos
+  // (início, fim ou onde estiverem) e espaços, deixando só o conteúdo real do código.
+  id=id.replace(/\*/g, '').trim();
+
+  if(!id) return; // ignora leitura vazia
 
   // evita ler a mesma peça repetidamente em menos de 3s
   const agora=Date.now();
