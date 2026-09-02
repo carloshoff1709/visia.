@@ -352,10 +352,23 @@ function abrirListasTransporte(){
     </div>
     <div class="mbtns" style="margin-top:12px;">
       <button class="mb-cancel" onclick="fecharOv('ov-listas')">Fechar</button>
+      <button class="mb-ok" style="background:#EF9F27;color:#1A2540;" onclick="testarSalvarLista()">🔍 Testar</button>
     </div>
   </div>`;
   document.body.appendChild(ov);
   carregarListasData();
+}
+
+// Diagnóstico: salva uma lista de teste e mostra a resposta crua do servidor
+async function testarSalvarLista(){
+  const body='action=salvar_lista&solicitante='+encodeURIComponent('TESTE')
+    +'&data_transporte='+encodeURIComponent('02/09/2026')
+    +'&observacao='+encodeURIComponent('teste diagnostico')
+    +'&dados='+encodeURIComponent(JSON.stringify({itens:[{produto:'TESTE',pecas:[{id:'X'}]}]}));
+  let rPost=null, rGet=null;
+  try{ const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body}); rPost='HTTP '+r.status+' → '+(await r.text()).slice(0,200); }catch(e){ rPost='FALHOU: '+e.message; }
+  try{ rGet=await api('action=listar_listas&data='+encodeURIComponent('02/09/2026')); }catch(e){ rGet='FALHOU: '+e.message; }
+  alert('TESTE DE SALVAR LISTA\n\n1) POST salvar_lista:\n'+rPost+'\n\n2) listar_listas (02/09/2026):\n'+JSON.stringify(rGet)+'\n\n(Me envie este texto)');
 }
 
 function brDataListaIso(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
