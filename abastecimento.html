@@ -77,7 +77,6 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
   <h1>Gestão de Fluxo e Produção</h1>
   <span id="user-lbl" style="font-size:11px;color:rgba(255,255,255,.7);"></span>
   <button id="ind-ultima" onclick="abrirListasTransporte()" style="background:#EF9F27;color:#1A2540;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;">📋 Listas de transporte</button>
-  <button onclick="gerarListaTransporte()" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">📄 Lista de Transporte</button>
   <a class="nav-voltar" href="index.html">&larr; Menu</a>
 </div>
 
@@ -473,13 +472,23 @@ function gerarListaTransporte(){
     <div style="max-height:220px;overflow-y:auto;border:1px solid #E7EBF0;border-radius:8px;padding:10px;margin:6px 0 12px;">
       ${linhasEdit}
     </div>
+    <div style="font-size:11px;color:#92400E;background:#FFF7E6;border:1px solid #F2B807;border-radius:8px;padding:8px 10px;margin-bottom:12px;">
+      ⚠️ Gere a imagem agora e envie aos operadores. A lista fica registrada em "Listas de transporte".
+    </div>
     <div class="mbtns">
-      <button class="mb-cancel" onclick="fecharOv('ov-data')">Cancelar</button>
-      <button class="mb-ok" onclick="renderImagemLista()">Gerar imagem</button>
+      <button class="mb-cancel" onclick="cancelarGerarLista()">Gerar depois</button>
+      <button class="mb-ok" style="flex:2;" onclick="renderImagemLista()">📄 Gerar imagem agora</button>
     </div>
   </div>`;
   document.body.appendChild(ov);
   window._itensTransporte=itens; // guarda para aplicar as edições
+}
+
+// Ao "gerar depois": avisa que a lista não foi gerada, mas as peças seguem solicitadas
+function cancelarGerarLista(){
+  fecharOv('ov-data');
+  const st=document.getElementById('status');
+  if(st) st.textContent='Peças solicitadas. Lembre de gerar a lista de transporte para os operadores.';
 }
 
 function brData(iso){ if(!iso) return '-'; const p=iso.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
