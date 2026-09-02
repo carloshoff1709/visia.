@@ -185,10 +185,11 @@ function render(){
     const local = d && (p.setor||p.posicao)
       ? `<div style="font-size:11px;color:#166534;margin-top:2px;">📍 ${p.setor||'—'}${p.posicao?' · Varal '+p.posicao:''}</div>`
       : '';
+    const nomeComProduto = (p.nome_peca||'—') + (p.produto ? ' — '+p.produto : '');
     return `<div class="item">
       <div class="info">
         <div class="id">${p.id_peca}</div>
-        <div class="nome">${p.nome_peca||'—'}</div>
+        <div class="nome">${nomeComProduto}</div>
         ${local}
       </div>
       <button class="toggle ${d?'disp':'falt'}" onclick="cliqueToggle(${p.linha},'${p.id_peca}',${d?1:0})">
