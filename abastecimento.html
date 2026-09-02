@@ -388,19 +388,21 @@ function montarListaTransporte(){
   MODULOS.forEach(m=>{
     const linhasTransporte=[];
     m.pecas.forEach(pc=>{
-      // peça normal solicitada
+      // peça normal solicitada: origem = setor de fabricação, destino = Montagem
       if(pc.solicitado && pc.estado!=='entregue'){
         linhasTransporte.push({
           id: pc.id, setor: pc.setor_fabrica||'-', fab: pc.data_fab||'-',
-          fabricada: pc.estado==='produzida', destino:''
+          fabricada: pc.estado==='produzida',
+          origem: pc.setor_fabrica||'-', destino: 'Montagem'
         });
       }
-      // estrutura ligada, se solicitada
+      // estrutura ligada solicitada: origem = Célula, destino = CAD/GRC (o que ela vira)
       if(pc.estrutura && pc.estrutura.solicitado && pc.estrutura.estado!=='entregue'){
         const es=pc.estrutura;
         linhasTransporte.push({
           id: es.id, setor: 'Célula de Estruturas', fab: es.data_fab||'-',
-          fabricada: es.estado==='produzida', destino: es.destino||es.vira_peca||''
+          fabricada: es.estado==='produzida',
+          origem: 'Célula de Estruturas', destino: es.destino||es.vira_peca||'CAD/GRC'
         });
       }
     });
@@ -418,21 +420,42 @@ function montarListaTransporte(){
 function gerarListaTransporte(){
   const itens=montarListaTransporte();
   if(itens.length===0){ alert('Nenhuma peca foi solicitada para transporte ainda.\n\nPrimeiro selecione as pecas nos cards e clique em "Solicitar transporte". Depois gere a lista.'); return; }
-  // passo 1: escolher data de transporte (sugere hoje)
+  // passo 1: escolher data, observação e conferir origem/destino
   const hojeIso=new Date().toISOString().slice(0,10);
+  // monta as linhas editáveis de origem/destino
+  let idxGlobal=0;
+  let linhasEdit='';
+  itens.forEach(it=>{
+    it.pecas.forEach(pc=>{
+      linhasEdit+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:12px;">
+        <span style="flex:1;font-weight:600;">${pc.id}</span>
+        <input data-idx="${idxGlobal}" data-campo="origem" value="${(pc.origem||'').replace(/"/g,'&quot;')}" placeholder="Origem" style="width:110px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">
+        <span style="color:#9CA3AF;">→</span>
+        <input data-idx="${idxGlobal}" data-campo="destino" value="${(pc.destino||'').replace(/"/g,'&quot;')}" placeholder="Destino" style="width:110px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">
+      </div>`;
+      pc._idx=idxGlobal;
+      idxGlobal++;
+    });
+  });
   const ov=document.createElement('div');
   ov.className='overlay'; ov.id='ov-data';
-  ov.innerHTML=`<div class="modal">
-    <h2>Data de transporte</h2>
-    <p>Escolha a data em que estas pecas devem ser transportadas (sugerido: hoje a noite).</p>
-    <label>Data do transporte</label>
-    <input id="dt-transp" type="date" value="${hojeIso}">
+  ov.innerHTML=`<div class="modal" style="max-width:520px;">
+    <h2>Gerar lista de transporte</h2>
+    <label style="font-size:12px;font-weight:600;">Data do transporte</label>
+    <input id="dt-transp" type="date" value="${hojeIso}" style="margin-bottom:12px;">
+    <label style="font-size:12px;font-weight:600;">Observação (aparece na imagem para os operadores)</label>
+    <textarea id="obs-transp" rows="2" placeholder="Ex: retirar no varal 3, cuidado com a pintura..." style="width:100%;padding:8px;border:1px solid #D8DCE3;border-radius:8px;font-size:12px;margin-bottom:12px;resize:vertical;"></textarea>
+    <label style="font-size:12px;font-weight:600;">Origem → Destino de cada peça (sugerido, pode ajustar)</label>
+    <div style="max-height:220px;overflow-y:auto;border:1px solid #E7EBF0;border-radius:8px;padding:10px;margin:6px 0 12px;">
+      ${linhasEdit}
+    </div>
     <div class="mbtns">
       <button class="mb-cancel" onclick="fecharOv('ov-data')">Cancelar</button>
       <button class="mb-ok" onclick="renderImagemLista()">Gerar imagem</button>
     </div>
   </div>`;
   document.body.appendChild(ov);
+  window._itensTransporte=itens; // guarda para aplicar as edições
 }
 
 function brData(iso){ if(!iso) return '-'; const p=iso.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
@@ -440,18 +463,28 @@ function brData(iso){ if(!iso) return '-'; const p=iso.split('-'); return p.leng
 function renderImagemLista(){
   const dtInput=document.getElementById('dt-transp');
   const dataTransp=dtInput?brData(dtInput.value):brData(new Date().toISOString().slice(0,10));
+  const obs=(document.getElementById('obs-transp')?document.getElementById('obs-transp').value:'').trim();
+  // aplica as edições de origem/destino feitas no modal
+  const itens=window._itensTransporte||montarListaTransporte();
+  document.querySelectorAll('#ov-data input[data-idx]').forEach(inp=>{
+    const idx=parseInt(inp.getAttribute('data-idx'),10);
+    const campo=inp.getAttribute('data-campo');
+    let count=0;
+    itens.forEach(it=>it.pecas.forEach(pc=>{ if(count===idx) pc[campo]=inp.value.trim(); count++; }));
+  });
   fecharOv('ov-data');
-  const itens=montarListaTransporte();
   if(itens.length===0){ alert('Nenhuma peca solicitada para transporte no momento.'); return; }
   const solicitante=sessionStorage.getItem('visia_nome')||sessionStorage.getItem('visia_user')||'-';
   const agora=new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR').slice(0,5);
 
   const W=760;
   const headerH=210;
-  const rowH=26, prodGap=18;
+  const rowH=40, prodGap=18; // linha maior p/ caber origem→destino
+  // altura extra para a observação, se houver
+  const obsH = obs ? 46 : 0;
   let bodyH=0;
   itens.forEach(it=>{ bodyH += 34 + it.pecas.length*rowH + prodGap; });
-  const H=headerH+bodyH+50;
+  const H=headerH+obsH+bodyH+50;
 
   const cv=document.createElement('canvas');
   cv.width=W; cv.height=H;
@@ -506,7 +539,23 @@ function renderImagemLista(){
     ctx.fillText(solicitante, 560, y+20);
     ctx.strokeStyle='#E3E8EF'; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(30,y+38); ctx.lineTo(W-30,y+38); ctx.stroke();
-    y=headerH+10;
+
+    let yBase=headerH+10;
+    // observação (se houver), em destaque
+    if(obs){
+      ctx.fillStyle='#FFF7E6'; ctx.fillRect(30, headerH-8, W-60, 38);
+      ctx.strokeStyle='#F2B807'; ctx.lineWidth=1; ctx.strokeRect(30, headerH-8, W-60, 38);
+      ctx.fillStyle='#92400E'; ctx.font='bold 12px Arial';
+      ctx.fillText('OBS: ', 40, headerH+15);
+      ctx.fillStyle='#374151'; ctx.font='12px Arial';
+      // quebra a observação se for longa
+      const maxObs=95;
+      const obsTxt = obs.length>maxObs ? obs.slice(0,maxObs)+'…' : obs;
+      ctx.fillText(obsTxt, 78, headerH+15);
+      yBase = headerH + obsH + 10;
+    }
+
+    y=yBase;
     itens.forEach(it=>{
       ctx.fillStyle='#12233A'; ctx.font='bold 15px Arial';
       ctx.fillText(it.produto, 30, y);
@@ -516,11 +565,15 @@ function renderImagemLista(){
       it.pecas.forEach(pc=>{
         ctx.fillStyle = pc.fabricada ? '#F2B807' : '#E24B4A';
         ctx.beginPath(); ctx.arc(40, y-4, 5, 0, Math.PI*2); ctx.fill();
+        // linha 1: id + status
         ctx.fillStyle='#1A2540'; ctx.font='bold 13px Arial';
         ctx.fillText(pc.id, 56, y);
         ctx.fillStyle='#6B7280'; ctx.font='12px Arial';
-        const destinoTxt = pc.destino ? ('  →  '+pc.destino) : '';
-        ctx.fillText('('+pc.setor+')   fab '+pc.fab+'   '+(pc.fabricada?'FABRICADA':'A FABRICAR')+destinoTxt, 200, y);
+        ctx.fillText('('+pc.setor+')   fab '+pc.fab+'   '+(pc.fabricada?'FABRICADA':'A FABRICAR'), 200, y);
+        // linha 2: origem -> destino, em destaque
+        ctx.fillStyle='#185FA5'; ctx.font='bold 12px Arial';
+        const orig=pc.origem||'-', dest=pc.destino||'-';
+        ctx.fillText('De: '+orig+'    →    Para: '+dest, 56, y+16);
         y+=rowH;
       });
       y+=prodGap;
