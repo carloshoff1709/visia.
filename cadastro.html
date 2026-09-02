@@ -284,9 +284,11 @@ function lerArquivoImport(){
   reader.onload=function(ev){
     try{
       const data=new Uint8Array(ev.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      // cellDates:true converte datas para objeto Date real (sem depender do formato do Excel)
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const linhas=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      // raw:true entrega os valores originais (Date fica Date, texto fica texto)
+      const linhas=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
       processarLinhasImport(linhas);
     }catch(err){ msg('err','Erro ao ler arquivo: '+err.message); }
   };
@@ -295,9 +297,15 @@ function lerArquivoImport(){
 
 function normalizarData(v){
   if(!v) return '';
+  const p2=n=>{ n=String(n); return n.length<2?'0'+n:n; };
+  // objeto Date real (vindo do Excel com cellDates). Usa métodos UTC para não
+  // deslocar o dia por causa do fuso horário (São Paulo é UTC-3): o SheetJS
+  // grava a data em UTC meia-noite, então lemos em UTC para preservar o dia.
+  if(v instanceof Date && !isNaN(v.getTime())){
+    return p2(v.getUTCDate())+'/'+p2(v.getUTCMonth()+1)+'/'+v.getUTCFullYear();
+  }
   v=String(v).trim();
   if(!v) return '';
-  const p2=n=>{ n=String(n); return n.length<2?'0'+n:n; };
   // ISO yyyy-mm-dd
   let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if(m) return p2(m[3])+'/'+p2(m[2])+'/'+m[1];

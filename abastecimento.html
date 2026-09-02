@@ -160,7 +160,9 @@ function render(){
   const modsVisiveis=MODULOS.filter(m=>m.pecas.filter(pecaVisivel).length>0);
   ajustarTamanhoCards(modsVisiveis.length);
   const cards=modsVisiveis.map(m=>{
-    const pecasFiltradas=m.pecas.filter(pecaVisivel);
+    const ehEstrutura=pc=>String(pc.setor_fabrica||'').trim().toLowerCase()==='célula de estruturas';
+    // peças da lista principal: exclui as que são estruturas (elas aparecem vinculadas sob a peça-mãe)
+    const pecasFiltradas=m.pecas.filter(pc=>pecaVisivel(pc) && !ehEstrutura(pc));
     const concluido=m._entregue?' concluido':'';
     // linhas selecionáveis deste card (peças que ainda não foram entregues)
     const linhasSelec=pecasFiltradas.filter(pc=>pc.linha && pc.estado!=='entregue').map(pc=>pc.linha);
