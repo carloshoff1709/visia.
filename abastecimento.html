@@ -169,9 +169,10 @@ function render(){
   const modsVisiveis=MODULOS.filter(m=>m.pecas.filter(pecaVisivel).length>0);
   ajustarTamanhoCards(modsVisiveis.length);
   const cards=modsVisiveis.map(m=>{
-    const ehEstrutura=pc=>String(pc.setor_fabrica||'').trim().toLowerCase()==='célula de estruturas';
-    // peças da lista principal: exclui as que são estruturas (elas aparecem vinculadas sob a peça-mãe)
-    const pecasFiltradas=m.pecas.filter(pc=>pecaVisivel(pc) && !ehEstrutura(pc));
+    // estrutura vinculada (com vira_peca) aparece recuada sob a peça-mãe; estrutura sem
+    // vira_peca é peça normal que vai pra Montagem e permanece na lista.
+    const ehEstruturaVinculada=pc=>String(pc.setor_fabrica||'').trim().toLowerCase()==='célula de estruturas' && String(pc.vira_peca||'').trim()!=='';
+    const pecasFiltradas=m.pecas.filter(pc=>pecaVisivel(pc) && !ehEstruturaVinculada(pc));
     const concluido=m._entregue?' concluido':'';
     // linhas selecionáveis deste card (peças que ainda não foram entregues)
     const linhasSelec=pecasFiltradas.filter(pc=>pc.linha && pc.estado!=='entregue').map(pc=>pc.linha);
@@ -445,16 +446,29 @@ function gerarListaTransporte(){
   if(itens.length===0){ alert('Nenhuma peca foi solicitada para transporte ainda.\n\nPrimeiro selecione as pecas nos cards e clique em "Solicitar transporte". Depois gere a lista.'); return; }
   // passo 1: escolher data, observação e conferir origem/destino
   const hojeIso=new Date().toISOString().slice(0,10);
+  // opções de destino com pavilhões
+  const DESTINOS=['Montagem Monoblocos Pesados (Pav 1)','Montagem Fast Flex (Pav 9)','CAD (Pav 3)','CAD (Pav 4)','CAD (Pav 5)','GRC (Pav 6)','GRC (Pav 7)'];
+  // sugere o destino conforme o destino atual da peça (CAD->Pav 3, GRC->Pav 6, Montagem->Pesados)
+  function sugereDestino(d){
+    d=String(d||'').toUpperCase();
+    if(d.indexOf('GRC')>-1) return 'GRC (Pav 6)';
+    if(d.indexOf('CAD')>-1) return 'CAD (Pav 3)';
+    if(d.indexOf('FAST')>-1) return 'Montagem Fast Flex (Pav 9)';
+    if(d.indexOf('MONTAGEM')>-1) return 'Montagem Monoblocos Pesados (Pav 1)';
+    return '';
+  }
   // monta as linhas editáveis de origem/destino
   let idxGlobal=0;
   let linhasEdit='';
   itens.forEach(it=>{
     it.pecas.forEach(pc=>{
+      const destSugerido=sugereDestino(pc.destino);
+      const opcoes=DESTINOS.map(op=>`<option value="${op}" ${op===destSugerido?'selected':''}>${op}</option>`).join('');
       linhasEdit+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:12px;">
         <span style="flex:1;font-weight:600;">${pc.id}</span>
-        <input data-idx="${idxGlobal}" data-campo="origem" value="${(pc.origem||'').replace(/"/g,'&quot;')}" placeholder="Origem" style="width:110px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">
+        <input data-idx="${idxGlobal}" data-campo="origem" value="${(pc.origem||'').replace(/"/g,'&quot;')}" placeholder="Origem" style="width:100px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">
         <span style="color:#9CA3AF;">→</span>
-        <input data-idx="${idxGlobal}" data-campo="destino" value="${(pc.destino||'').replace(/"/g,'&quot;')}" placeholder="Destino" style="width:110px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">
+        <select data-idx="${idxGlobal}" data-campo="destino" style="width:190px;padding:5px;border:1px solid #D8DCE3;border-radius:6px;font-size:11px;">${opcoes}</select>
       </div>`;
       pc._idx=idxGlobal;
       idxGlobal++;
@@ -499,7 +513,7 @@ function renderImagemLista(){
   const obs=(document.getElementById('obs-transp')?document.getElementById('obs-transp').value:'').trim();
   // aplica as edições de origem/destino feitas no modal
   const itens=window._itensTransporte||montarListaTransporte();
-  document.querySelectorAll('#ov-data input[data-idx]').forEach(inp=>{
+  document.querySelectorAll('#ov-data input[data-idx], #ov-data select[data-idx]').forEach(inp=>{
     const idx=parseInt(inp.getAttribute('data-idx'),10);
     const campo=inp.getAttribute('data-campo');
     let count=0;
