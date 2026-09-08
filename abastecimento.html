@@ -33,12 +33,15 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .card-chk.partial{background:#93B4D6;border-color:#93B4D6;}
 .card-head:hover .card-chk{border-color:#185FA5;}
 .card-body{padding:6px 8px;display:flex;flex-direction:column;gap:4px;}
-.peca{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;border:1px solid #E7EBF0;background:#fff;cursor:pointer;}
+.peca{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;border:1px solid #E7EBF0;background:#fff;cursor:pointer;}
 .peca:hover{background:#F7F9FB;}
+.peca .pinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.peca .ptopo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.peca .pnome{font-size:12px;font-weight:600;white-space:nowrap;}
+.peca .pmeta{font-size:10px;color:#9CA3AF;}
 .peca .pdot{width:12px;height:12px;border-radius:4px;flex-shrink:0;}
-.peca .pnome{flex:1;font-size:12px;font-weight:600;}
-.peca .pmeta{font-size:9px;color:#9CA3AF;}
-.peca .psetor{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;background:#EEF2F7;color:#185FA5;}
+.peca .pmeta{font-size:10px;color:#9CA3AF;}
+.peca .psetor{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;background:#EEF2F7;color:#185FA5;white-space:nowrap;}
 .peca.sel{outline:2px solid #185FA5;background:#EFF5FC;}
 /* estados base */
 .e-a_produzir .pdot{background:#C4CDD8;}
@@ -186,9 +189,10 @@ function render(){
       const podeselecionar = pc.linha && pc.estado!=='entregue';
       let html=`<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
         <span class="pdot"></span>
-        <span class="pnome">${pc.id}</span>
-        ${setorTag}
-        <span class="pmeta">${data}</span>
+        <div class="pinfo">
+          <div class="ptopo"><span class="pnome">${pc.id}</span>${setorTag}</div>
+          <span class="pmeta">${data}</span>
+        </div>
       </div>`;
       // estrutura ligada (Célula de Estruturas): aparece recuada sob a peça que ela vira
       if(pc.estrutura){
@@ -199,9 +203,10 @@ function render(){
         const espode = es.linha && es.estado!=='entregue';
         html+=`<div class="peca estrutura ${escls}${essel}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
           <span class="pdot"></span>
-          <span class="pnome">↳ ${es.id}</span>
-          <span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span>
-          <span class="pmeta">${esdata} · vira ${es.vira_peca}</span>
+          <div class="pinfo">
+            <div class="ptopo"><span class="pnome">↳ ${es.id}</span><span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
+            <span class="pmeta">${esdata} · vira ${es.vira_peca}</span>
+          </div>
         </div>`;
       }
       return html;
