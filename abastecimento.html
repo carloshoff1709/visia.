@@ -195,7 +195,9 @@ function render(){
     const linhas=pecasFiltradas.map(pc=>{
       const cls='e-'+pc.estado+(pc.solicitado?' solicitado '+pc.estado:'');
       const selCls=(pc.linha && SEL[pc.linha])?' sel':'';
-      const setorTag=pc.setor_fabrica?`<span class="psetor">${pc.setor_fabrica}</span>`:'';
+      const setorLabel = String(pc.setor_fabrica||'').trim().toLowerCase()==='célula de estruturas' ? 'Célula' : pc.setor_fabrica;
+      const setorEstilo = String(pc.setor_fabrica||'').trim().toLowerCase()==='célula de estruturas' ? ' style="background:#EDE4FA;color:#6D4AAE;"' : '';
+      const setorTag=pc.setor_fabrica?`<span class="psetor"${setorEstilo}>${setorLabel}</span>`:'';
       const data=pc.data_fab?`fab ${pc.data_fab}`:'';
       const podeselecionar = pc.linha && pc.estado!=='entregue';
       const idFmt=formatarId(pc.id);
