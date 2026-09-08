@@ -38,6 +38,7 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .peca .pinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
 .peca .ptopo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .peca .pnome{font-size:12px;font-weight:600;white-space:nowrap;}
+.peca .pprod{font-size:9px;color:#B4BCC7;font-weight:500;white-space:nowrap;}
 .peca .pmeta{font-size:10px;color:#9CA3AF;}
 .peca .pdot{width:12px;height:12px;border-radius:4px;flex-shrink:0;}
 .peca .pmeta{font-size:10px;color:#9CA3AF;}
@@ -148,6 +149,16 @@ function setFiltro(f,btn){
   btn.classList.add('on');
   render();
 }
+// Separa o ID da peça do sufixo do produto. Ex: "EST-PISO-P-CI-1-06-P2"
+// -> { principal:"EST-PISO-P", produto:"CI-1-06-P2" }. O produto aparece discreto.
+function formatarId(id){
+  id=String(id||'');
+  // procura o padrão do produto: CI-<num>-<num>-P<num> no fim
+  const m=id.match(/^(.*?)-(CI-\d+-\d+-P\d+)$/i);
+  if(m) return { principal:m[1], produto:m[2] };
+  return { principal:id, produto:'' };
+}
+
 function pecaVisivel(pc){
   if(FILTRO==='todos') return true;
   const f=FILTRO.trim().toUpperCase();
@@ -187,10 +198,11 @@ function render(){
       const setorTag=pc.setor_fabrica?`<span class="psetor">${pc.setor_fabrica}</span>`:'';
       const data=pc.data_fab?`fab ${pc.data_fab}`:'';
       const podeselecionar = pc.linha && pc.estado!=='entregue';
+      const idFmt=formatarId(pc.id);
       let html=`<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
         <span class="pdot"></span>
         <div class="pinfo">
-          <div class="ptopo"><span class="pnome">${pc.id}</span>${setorTag}</div>
+          <div class="ptopo"><span class="pnome">${idFmt.principal}</span>${idFmt.produto?`<span class="pprod">${idFmt.produto}</span>`:''}${setorTag}</div>
           <span class="pmeta">${data}</span>
         </div>
       </div>`;
@@ -201,11 +213,13 @@ function render(){
         const essel=(es.linha && SEL[es.linha])?' sel':'';
         const esdata=es.data_fab?`fab ${es.data_fab}`:'';
         const espode = es.linha && es.estado!=='entregue';
+        const esIdFmt=formatarId(es.id);
+        const viraFmt=formatarId(es.vira_peca);
         html+=`<div class="peca estrutura ${escls}${essel}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
           <span class="pdot"></span>
           <div class="pinfo">
-            <div class="ptopo"><span class="pnome">↳ ${es.id}</span><span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
-            <span class="pmeta">${esdata} · vira ${es.vira_peca}</span>
+            <div class="ptopo"><span class="pnome">↳ ${esIdFmt.principal}</span><span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
+            <span class="pmeta">${esdata} · vira ${viraFmt.principal}</span>
           </div>
         </div>`;
       }
