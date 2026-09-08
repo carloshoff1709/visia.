@@ -883,7 +883,12 @@ async function concluirMontagemPainel(estacao){
 }
 
 /* Marca o status (emoji) de um processo. Aceita emoji direto ('✅') ou índice (0-3). */
+function souVisualizador(){
+  const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
+  return perfil==='visualizador';
+}
 function marcarStatusProc(estacao, proc, emojiOuIdx){
+  if(souVisualizador()){ setMsg('err','Modo somente visualização — não é possível alterar status.'); return; }
   const emojis=['🕒','🔄','✅','⚠️'];
   const emoji = (typeof emojiOuIdx==='number') ? emojis[emojiOuIdx] : emojiOuIdx;
   if(!emoji){ setMsg('err','Emoji inválido.'); return; }
@@ -1194,32 +1199,36 @@ async function fetchSheets(){
 }
 
 async function verDiagnostico(){
-  // PARTE A: mostra o que o painel LÊ da planilha para M1 (leitura)
-  let raw=null;
-  const appsUrl=localStorage.getItem('sheets_url');
-  try{ raw=await fetchViaJsonp(appsUrl); }catch(_){}
-  let relLeitura='LEITURA (o que o painel recebe da planilha):\n\n';
-  if(Array.isArray(raw)){
-    const m1=raw.find(r=>String(r.maquina||'').toUpperCase()===((lastData.find(x=>x.cod)||{}).maquina||'M1').toUpperCase()) || raw.find(r=>r.cod);
-    if(m1){
-      relLeitura+='Estação: '+m1.maquina+' ('+m1.cod+')\n';
-      relLeitura+='Progresso recebido: '+m1.progresso+'%\n';
-      relLeitura+='Processos e status:\n';
-      (m1.processos||[]).forEach((p,i)=>{ relLeitura+='  '+(i+1)+') '+p.nome+' = ['+p.status+']\n'; });
-    }else{ relLeitura+='(nenhuma estação com produto encontrada)'; }
-  }else{ relLeitura+='FALHA: resposta não é lista. Recebido: '+JSON.stringify(raw).slice(0,150); }
-  alert(relLeitura+'\n\n➡ Se os status acima estão como 🕒 mas na planilha estão ✅, o problema é a leitura. Se estão corretos aqui mas o card mostra errado, é a exibição.');
-
-  // PARTE B: teste de gravação
   const est=(lastData&&lastData.length)?(lastData.find(r=>r.cod)||lastData[0]).maquina:'M1';
-  if(!confirm('Agora testar GRAVAÇÃO? Vou marcar o processo 1 da '+est+' como ✅.')) return;
+  if(!confirm('Vou marcar o processo 1 da '+est+' como ✅, esperar 3 segundos, e reler a planilha para ver se o valor PERMANECEU.\n\nContinuar?')) return;
+
+  // 1) grava
   const params='action=marcar_status&estacao='+encodeURIComponent(est)+'&proc=1&status='+encodeURIComponent('✅');
-  const url=urlAppsScript(params);
-  let relatorio='GRAVAÇÃO:\n\n';
-  try{ const r=await fetchViaJsonp(url); relatorio+='Resposta: '+JSON.stringify(r); }
-  catch(e){ relatorio+='FALHOU ('+e.message+')'; }
-  relatorio+='\n\n➡ Abra a planilha: status_1 da '+est+' deve estar ✅. Depois volte ao painel e clique em "Testar gravação" de novo (PARTE A) para ver se o painel LÊ o ✅.';
-  alert(relatorio);
+  let respGravacao=null;
+  try{ respGravacao=await chamarAppsScript(params); }catch(e){ respGravacao={erro_js:e.message}; }
+
+  // 2) espera 3s (tempo de a planilha propagar/reverter, se for o caso)
+  await new Promise(res=>setTimeout(res, 3000));
+
+  // 3) relê a planilha e vê o que está lá AGORA
+  let releitura=null;
+  try{ releitura=await fetchViaJsonp(localStorage.getItem('sheets_url')); }catch(_){}
+  let statusAtual='(não consegui reler)';
+  if(Array.isArray(releitura)){
+    const m=releitura.find(r=>String(r.maquina||'').toUpperCase()===est.toUpperCase());
+    if(m && m.processos && m.processos[0]) statusAtual=m.processos[0].status;
+  }
+
+  // 4) veredito
+  let veredito;
+  if(statusAtual==='✅') veredito='✅ FUNCIONOU! O valor foi gravado E permaneceu na planilha.';
+  else veredito='❌ PROBLEMA: gravei ✅ mas 3s depois a planilha está com ['+statusAtual+']. O valor NÃO permaneceu.';
+
+  alert('RESULTADO DO TESTE\n\n'
+    +'1) Resposta ao gravar:\n'+JSON.stringify(respGravacao)+'\n\n'
+    +'2) Status na planilha 3s depois: ['+statusAtual+']\n\n'
+    +veredito
+    +'\n\n(Me envie este texto inteiro)');
 }
 
 async function _verDiagnosticoAntigo(){

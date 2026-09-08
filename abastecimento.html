@@ -253,15 +253,23 @@ function atualizarBarra(){
 
 /* ---- Solicitacao com login + confirmacao ---- */
 function podeSolicitar(){
-  const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase();
+  const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
   if(!sessionStorage.getItem('visia_user')) return false;
-  if(perfil.includes('todos')||perfil.includes('master')) return true;
-  return PERFIS_SOLICITA.some(p=>perfil.split(',').map(x=>x.trim()).includes(p));
+  // apontador, administrador e master podem solicitar; visualizador só olha.
+  // (mantém compatibilidade com perfis antigos)
+  const PODEM=['apontador','administrador','master','solicitante','gestao_fluxo','todos'];
+  return PODEM.some(p=>perfil.split(',').map(x=>x.trim()).includes(p));
+}
+function souVisualizador(){
+  const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
+  return perfil==='visualizador';
 }
 
 function pedirSolicitacao(){
   const n=Object.keys(SEL).length;
   if(n===0) return;
+  // visualizador não solicita
+  if(souVisualizador()){ alert('Seu perfil é somente visualização. Você pode acompanhar, mas não solicitar transporte.'); return; }
   // ja logado e com permissao? vai direto pra confirmacao
   if(podeSolicitar()){ confirmarSolicitacao(); return; }
   // senao, pede login
@@ -688,6 +696,24 @@ mostrarUser();
 carregar();
 carregarUltimaLista();
 setInterval(carregar, 30000);
+
+// Modo somente-visualização: esconde a barra de seleção/solicitação para o Visualizador
+function aplicarModoVisualizacao(){
+  if(souVisualizador()){
+    // esconde a barra de ações (seleção e solicitar)
+    const barra=document.querySelector('.barra-acoes')||document.getElementById('barra-acoes');
+    if(barra) barra.style.display='none';
+    // aviso de somente leitura no topo
+    if(!document.getElementById('aviso-view')){
+      const av=document.createElement('div');
+      av.id='aviso-view';
+      av.style.cssText='background:#EEF4FB;color:#185FA5;font-size:12px;font-weight:600;text-align:center;padding:8px;';
+      av.textContent='👁 Modo somente visualização — você pode acompanhar, mas não solicitar transporte.';
+      document.body.insertBefore(av, document.body.children[1]||null);
+    }
+  }
+}
+aplicarModoVisualizacao();
 </script>
 </body>
 </html>

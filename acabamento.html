@@ -872,7 +872,12 @@ function enfileirarGravacao(estacao, proc, emoji, item){
   });
   return _filaGravacao;
 }
+function souVisualizador(){
+  const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
+  return perfil==='visualizador';
+}
 function marcarStatusProc(estacao, proc, emojiOuIdx){
+  if(souVisualizador()){ setMsg('err','Modo somente visualização — não é possível alterar status.'); return; }
   const emojis=['🕒','🔄','✅','⚠️'];
   const emoji=(typeof emojiOuIdx==='number')?emojis[emojiOuIdx]:emojiOuIdx;
   if(!emoji){ setMsg('err','Emoji inválido.'); return; }

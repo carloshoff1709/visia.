@@ -202,13 +202,17 @@ async function apiI(params){
   return null;
 }
 
-// Perfis: visualizador, apontador, administrador, master
-// Cada perfil libera certos módulos (cards):
+// Perfis hierárquicos: cada nível acumula os módulos do nível anterior.
+// visualizador ⊂ apontador ⊂ administrador ⊂ master
 const PERMISSOES={
-  visualizador:  ['montagem','acabamento','producao','abastecimento'],           // só vê produção e logística
-  apontador:     ['montagem','acabamento','producao','abastecimento','conferencia','leitor'], // produção, logística, estoque
-  administrador: ['cadastro'],                                                    // cadastro
-  master:        ['montagem','acabamento','producao','abastecimento','conferencia','leitor','cadastro'] // tudo
+  // Visualizador: produção e logística (só visualiza — o "só ver" é tratado dentro de cada painel)
+  visualizador:  ['montagem','acabamento','producao','abastecimento'],
+  // Apontador: tudo do Visualizador + Estoque (conferência e leitor)
+  apontador:     ['montagem','acabamento','producao','abastecimento','conferencia','leitor'],
+  // Administrador: tudo do Apontador + Cadastro
+  administrador: ['montagem','acabamento','producao','abastecimento','conferencia','leitor','cadastro'],
+  // Master: tudo
+  master:        ['montagem','acabamento','producao','abastecimento','conferencia','leitor','cadastro']
 };
 function perfilPermite(mod){
   const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
@@ -249,24 +253,37 @@ function aplicarPerfil(){
 }
 
 function abrirLoginI(){
-  document.getElementById('login-overlay-i').style.display='flex';
-  document.getElementById('li-user').focus();
+  const el=document.getElementById('login-overlay-i'); if(el){ el.style.display='flex'; document.getElementById('li-user').focus(); }
 }
-function fecharLoginI(){ document.getElementById('login-overlay-i').style.display='none'; }
+// compatibilidade: a tela oculta (login-overlay-i) usa fazerLoginI
 async function fazerLoginI(){
-  const u=document.getElementById('li-user').value.trim();
-  const p=document.getElementById('li-pass').value.trim();
-  const erro=document.getElementById('li-erro');
+  const u=(document.getElementById('li-user')||{}).value||'';
+  const p=(document.getElementById('li-pass')||{}).value||'';
+  const r=await apiI('action=login&usuario='+encodeURIComponent(u.trim())+'&senha='+encodeURIComponent(p.trim()));
+  if(r&&r.ok){
+    sessionStorage.setItem('visia_user',r.usuario);
+    sessionStorage.setItem('visia_nome',r.nome||r.usuario);
+    sessionStorage.setItem('visia_perfil',(r.perfil||'').toLowerCase().trim());
+    fecharLoginI(); aplicarPerfil();
+  }else{ const e=document.getElementById('li-erro'); if(e) e.textContent=(r&&r.erro)||'Falha no login.'; }
+}
+function fecharLoginI(){ const el=document.getElementById('login-overlay-i'); if(el) el.style.display='none'; }
+
+// Login da tela principal (campos tl-user / tl-pass)
+async function fazerLoginGeral(){
+  const u=document.getElementById('tl-user').value.trim();
+  const p=document.getElementById('tl-pass').value.trim();
+  const erro=document.getElementById('tl-erro');
   if(!u||!p){ erro.textContent='Preencha usuário e senha.'; return; }
   erro.textContent='Verificando...';
   const r=await apiI('action=login&usuario='+encodeURIComponent(u)+'&senha='+encodeURIComponent(p));
   if(r&&r.ok){
     sessionStorage.setItem('visia_user',r.usuario);
     sessionStorage.setItem('visia_nome',r.nome||r.usuario);
-    sessionStorage.setItem('visia_perfil',r.perfil||'');
-    fecharLoginI(); erro.textContent='';
+    sessionStorage.setItem('visia_perfil',(r.perfil||'').toLowerCase().trim());
+    erro.textContent='';
     aplicarPerfil();
-  }else{ erro.textContent=(r&&r.erro)||'Falha no login.'; }
+  }else{ erro.textContent=(r&&r.erro)||'Usuário ou senha inválidos.'; }
 }
 function sairI(){ sessionStorage.clear(); aplicarPerfil(); }
 
