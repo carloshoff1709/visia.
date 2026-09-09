@@ -284,10 +284,10 @@ function lerArquivoImport(){
   reader.onload=function(ev){
     try{
       const data=new Uint8Array(ev.target.result);
-      // cellDates:true converte datas para objeto Date real (sem depender do formato do Excel)
-      const wb=XLSX.read(data,{type:'array',cellDates:true});
+      // cellDates:true converte datas para Date; a leitura considera UTC para
+      // não deslocar o dia pelo fuso de São Paulo.
+      const wb=XLSX.read(data,{type:'array',cellDates:true,cellNF:false,cellText:false});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      // raw:true entrega os valores originais (Date fica Date, texto fica texto)
       const linhas=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
       processarLinhasImport(linhas);
     }catch(err){ msg('err','Erro ao ler arquivo: '+err.message); }
@@ -306,6 +306,14 @@ function normalizarData(v){
   }
   v=String(v).trim();
   if(!v) return '';
+  // texto que é um número serial de data do Excel (ex: "46233" = 30/07/2026)
+  if(/^\d{5}$/.test(v)){
+    const n=parseInt(v,10);
+    if(n>=20000 && n<=60000){
+      const d=new Date(Date.UTC(1899,11,30)+n*86400000);
+      return p2(d.getUTCDate())+'/'+p2(d.getUTCMonth()+1)+'/'+d.getUTCFullYear();
+    }
+  }
   // ISO yyyy-mm-dd
   let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if(m) return p2(m[3])+'/'+p2(m[2])+'/'+m[1];
@@ -322,6 +330,17 @@ function normalizarData(v){
 
 function processarLinhasImport(linhas){
   if(!linhas.length){ msg('err','Arquivo vazio ou sem dados.'); return; }
+  // monta o sufixo único do produto (ex: "CI-2-08 - P1" -> "CI-2-08-P1")
+  const sufixoProd=idp=>String(idp||'').replace(/\s*-\s*/g,'-').replace(/\s+/g,'').toUpperCase();
+  // anexa o produto ao id da peça, se ainda não estiver anexado
+  const idUnico=(base,idp)=>{
+    base=String(base||'').trim();
+    if(!base) return base;
+    const suf='-'+sufixoProd(idp);
+    // se já termina com o sufixo do produto, não duplica
+    if(base.toUpperCase().endsWith(suf.toUpperCase())) return base;
+    return base+suf;
+  };
   // agrupa por id_produto
   const mapa={};
   const ordem=[];
@@ -339,14 +358,15 @@ function processarLinhasImport(linhas){
       };
       ordem.push(idProd);
     }
-    const idPeca=g(['id_peca','idpeca']);
-    if(idPeca){
+    const idPecaBase=g(['id_peca','idpeca']);
+    if(idPecaBase){
+      const viraBase=g(['vira_peca','virapeca','vira a peca','vira a peça']);
       mapa[idProd].pecas.push({
-        id_peca:idPeca,
+        id_peca:idUnico(idPecaBase, idProd),   // monta o ID único automaticamente
         nome_peca:g(['nome_peca','nomepeca']),
         serial:g(['serial','codigo_barras','serial (codigo de barras)']),
         setor_fabrica:(function(v){ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); })(g(['setor_fabrica','setorfabrica','setor que fabrica'])),
-        vira_peca:g(['vira_peca','virapeca','vira a peca','vira a peça']),
+        vira_peca: viraBase ? idUnico(viraBase, idProd) : '',  // o vínculo também vira ID único
         vira_nome:g(['vira_nome','viranome']),
         vira_serial:g(['vira_serial','viraserial']),
         vira_data:normalizarData(g(['vira_data','viradata'])),
@@ -462,18 +482,21 @@ function adicionarPecaCascata(){
   let serial=document.getElementById('np-serial').value.trim();
   let setorfab=document.getElementById('np-setorfab').value;
   let datafab=isoParaBR(document.getElementById('np-datafab').value);
+  // campos vira peça (só preenchidos quando setor = Célula de Estruturas)
+  let vira=document.getElementById('np-vira').value.trim();
+  let viranome=document.getElementById('np-viranome').value.trim();
+  let viraserial=document.getElementById('np-viraserial').value.trim();
+  let viradata=isoParaBR(document.getElementById('np-viradata').value);
   // se não digitou nome/serial mas o ID já existe, herda os dados cadastrados
   const info=MAPA_PECAS[id];
   if(info){
     if(!nome) nome=info.nome||'';
     if(!serial) serial=info.serial||'';
   }
-  pecasCascata.push({id,nome,serial,setor_fabrica:setorfab,data_fabricacao:datafab});
-  document.getElementById('np-id').value='';
-  document.getElementById('np-nome').value='';
-  document.getElementById('np-serial').value='';
+  pecasCascata.push({id,nome,serial,setor_fabrica:setorfab,data_fabricacao:datafab,vira_peca:vira,vira_nome:viranome,vira_serial:viraserial,vira_data:viradata});
+  ['np-id','np-nome','np-serial','np-datafab','np-vira','np-viranome','np-viraserial','np-viradata'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('np-setorfab').value='';
-  document.getElementById('np-datafab').value='';
+  toggleViraPeca();
   document.getElementById('np-id').focus();
   renderCascata();
 }
@@ -486,7 +509,8 @@ function renderCascata(){
     const serial = p.serial || '';
     const setor = p.setor_fabrica ? (' · '+p.setor_fabrica) : '';
     const dfab = p.data_fabricacao ? (' · fab '+p.data_fabricacao) : '';
-    const detalhe = [nome||'sem nome', serial?('serial '+serial):'sem serial'].join(' · ')+setor+dfab;
+    const vira = p.vira_peca ? (' · ↳ vira '+p.vira_peca) : '';
+    const detalhe = [nome||'sem nome', serial?('serial '+serial):'sem serial'].join(' · ')+setor+dfab+vira;
     return `
     <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E1E6EC;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
       <span style="font-size:13px;font-weight:700;">${p.id}</span>
@@ -506,7 +530,7 @@ async function salvarProduto(){
   msg('load','Salvando produto…');
   // monta mapa {id: {nome, serial}} das peças da cascata
   const infoPecas={};
-  pecasCascata.forEach(pc=>{ infoPecas[pc.id]={nome:(pc.nome||'').trim(), serial:(pc.serial||'').trim(), setor_fabrica:(pc.setor_fabrica||'').trim(), data_fabricacao:(pc.data_fabricacao||'').trim()}; });
+  pecasCascata.forEach(pc=>{ infoPecas[pc.id]={nome:(pc.nome||'').trim(), serial:(pc.serial||'').trim(), setor_fabrica:(pc.setor_fabrica||'').trim(), data_fabricacao:(pc.data_fabricacao||'').trim(), vira_peca:(pc.vira_peca||'').trim(), vira_nome:(pc.vira_nome||'').trim(), vira_serial:(pc.vira_serial||'').trim(), vira_data:(pc.vira_data||'').trim()}; });
   // lista de peças (repete o id conforme adicionado = quantidade de unidades)
   const pecas=pecasCascata.map(p=>p.id).join(',');
   const r=await api('action=salvar_produto&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_produto='+encodeURIComponent(id)
