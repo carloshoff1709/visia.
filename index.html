@@ -92,26 +92,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <div class="wrap">
 
-  <div class="sec">
-    <div class="sec-head"><span class="dot" style="background:#1D9E75;"></span><h2>Produção</h2><span class="ln"></span></div>
-    <div class="grid">
-      <a class="card" data-mod="montagem" href="montagem.html">
-        <div class="top"><div class="ico i-mont">🔧</div><span class="arrow">→</span></div>
-        <div class="nome">Montagem</div>
-        <div class="desc">Estações M1–M5. Programação, processos e conclusão da montagem.</div>
-      </a>
-      <a class="card" data-mod="acabamento" href="acabamento.html">
-        <div class="top"><div class="ico i-acab">🎨</div><span class="arrow">→</span></div>
-        <div class="nome">Acabamento</div>
-        <div class="desc">Estações E1–E16. Fila de acabamento, processos e liberação.</div>
-      </a>
-      <a class="card" data-mod="producao" href="producao.html">
-        <div class="top"><div class="ico i-uni">🖥️</div><span class="arrow">→</span></div>
-        <div class="nome">Painel Unificado</div>
-        <div class="desc">Montagem e acabamento numa tela só, com alternância automática.</div>
-      </a>
-    </div>
-  </div>
 
   <div class="sec">
     <div class="sec-head"><span class="dot" style="background:#185FA5;"></span><h2>Estoque</h2><span class="ln"></span></div>
@@ -171,13 +151,12 @@ window.addEventListener('appinstalled',()=>{ const b=document.getElementById('bt
    Produção é livre (sempre visível). Estoque/Admin exigem login.
    O perfil vem da aba Usuarios (coluna D): lista de módulos ou "todos". */
 const URL_LOGIN='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
-const MOD_LIVRES=['montagem','acabamento','producao','abastecimento']; // produção + logística: sempre visível
+const MOD_LIVRES=['abastecimento']; // logística: sempre visível
 const MOD_RESTRITOS=['conferencia','leitor','cadastro']; // exigem login
 
 // Cada módulo pertence a uma ÁREA. O perfil do usuário libera por área.
-// Áreas: producao, estoque, logistica, administracao
+// Áreas: estoque, logistica, administracao (produção foi removida)
 const AREA_DO_MOD={
-  montagem:'producao', acabamento:'producao', producao:'producao',
   conferencia:'estoque', leitor:'estoque',
   abastecimento:'logistica',
   cadastro:'administracao'
@@ -205,14 +184,14 @@ async function apiI(params){
 // Perfis hierárquicos: cada nível acumula os módulos do nível anterior.
 // visualizador ⊂ apontador ⊂ administrador ⊂ master
 const PERMISSOES={
-  // Visualizador: produção e logística (só visualiza — o "só ver" é tratado dentro de cada painel)
-  visualizador:  ['montagem','acabamento','producao','abastecimento'],
-  // Apontador: tudo do Visualizador + Estoque (conferência e leitor)
-  apontador:     ['montagem','acabamento','producao','abastecimento','conferencia','leitor'],
+  // Visualizador: só Logística (visualiza)
+  visualizador:  ['abastecimento'],
+  // Apontador: Logística + Estoque (conferência e leitor)
+  apontador:     ['abastecimento','conferencia','leitor'],
   // Administrador: tudo do Apontador + Cadastro
-  administrador: ['montagem','acabamento','producao','abastecimento','conferencia','leitor','cadastro'],
+  administrador: ['abastecimento','conferencia','leitor','cadastro'],
   // Master: tudo
-  master:        ['montagem','acabamento','producao','abastecimento','conferencia','leitor','cadastro']
+  master:        ['abastecimento','conferencia','leitor','cadastro']
 };
 function perfilPermite(mod){
   const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
