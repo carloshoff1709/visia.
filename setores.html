@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setores e Fluxos — Visia</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1A2540">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#EEF1F5;color:#1A2540;min-height:100vh;}
+  .topo{background:#1A2540;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px;justify-content:space-between;}
+  .topo .tt{display:flex;align-items:center;gap:12px;}
+  .topo .logo{font-size:22px;font-weight:800;color:#5FA8E8;}
+  .topo h1{font-size:16px;font-weight:700;}
+  .nav-voltar{color:#fff;text-decoration:none;font-size:13px;background:rgba(255,255,255,.12);padding:6px 12px;border-radius:8px;}
+  .wrap{max-width:840px;margin:0 auto;padding:24px 18px;}
+  .card{background:#fff;border:1px solid #E1E6EC;border-radius:14px;padding:22px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
+  h2{font-size:16px;color:#12233A;margin-bottom:6px;}
+  p.desc{font-size:13px;color:#6B7280;margin-bottom:16px;line-height:1.5;}
+  .setor-item{border:1px solid #E7EBF0;border-radius:10px;padding:14px;margin-bottom:12px;background:#FAFBFC;}
+  .setor-topo{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .setor-topo input.nome{flex:1;font-size:14px;font-weight:700;padding:8px 10px;border:1px solid #D8DCE3;border-radius:8px;}
+  .btn{font-size:13px;font-weight:600;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;color:#fff;background:#185FA5;}
+  .btn:hover{background:#0C447C;}
+  .btn.verde{background:#1D9E75;}
+  .btn.del{background:#E24B4A;padding:7px 12px;font-size:12px;}
+  .btn.sec{background:#EEF0F4;color:#374151;border:1px solid #D8DCE3;}
+  .destinos-lbl{font-size:11px;color:#6B7280;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;}
+  .destinos-box{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:#EAF2FB;color:#185FA5;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;}
+  .chip button{background:none;border:none;color:#185FA5;cursor:pointer;font-size:14px;line-height:1;padding:0;}
+  .add-dest{display:flex;gap:6px;align-items:center;margin-top:8px;}
+  .add-dest select{font-size:12px;padding:6px 8px;border:1px solid #D8DCE3;border-radius:7px;}
+  .add-dest .btn{padding:6px 12px;font-size:12px;}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:#6B7280;}
+  .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-top:14px;display:none;}
+  .msg.ok{background:#E8F6F0;color:#158060;display:block;}
+  .msg.err{background:#FDEBEC;color:#C0392B;display:block;}
+  .msg.load{background:#EEF4FB;color:#185FA5;display:block;}
+  .acoes-topo{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  /* login */
+  .login-ov{position:fixed;inset:0;background:linear-gradient(135deg,#1A2540,#0C2340);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+  .login-box{background:#fff;border-radius:16px;padding:30px 26px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4);}
+  .login-box .logo{font-size:28px;font-weight:800;color:#185FA5;margin-bottom:4px;}
+  .login-box h2{font-size:15px;color:#1A2540;margin:10px 0 4px;}
+  .login-box input{width:100%;padding:11px;margin:6px 0;border:1px solid #D8DCE3;border-radius:9px;font-size:14px;background:#EEF2F7;}
+  .login-box .btn{width:100%;margin-top:10px;}
+  .login-erro{color:#C0392B;font-size:12px;margin-top:8px;min-height:16px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-ov" id="login-ov" style="display:none;">
+  <div class="login-box">
+    <div class="logo">VISIA</div>
+    <div style="font-size:11px;color:#9CA3AF;letter-spacing:2px;">CONSTRUÇÃO MODULAR</div>
+    <h2>Configuração de Setores</h2>
+    <p style="font-size:12px;color:#6B7280;">Acesso restrito (Administrador/Master)</p>
+    <input id="lg-user" placeholder="Usuário" autocomplete="username">
+    <input id="lg-pass" type="password" placeholder="Senha" autocomplete="current-password">
+    <button class="btn" onclick="fazerLogin()">Entrar</button>
+    <div class="login-erro" id="lg-erro"></div>
+  </div>
+</div>
+
+<div class="topo">
+  <div class="tt"><span class="logo">VISIA</span><h1>Setores e Fluxos de Entrega</h1></div>
+  <a class="nav-voltar" href="index.html">← Menu</a>
+</div>
+
+<div class="wrap" id="conteudo" style="display:none;">
+  <div class="card">
+    <h2>Setores de fornecimento</h2>
+    <p class="desc">Configure os setores que abastecem a produção e para quem cada um entrega. Um setor pode entregar para vários destinos. Os setores ativos aparecem automaticamente nos cadastros e apontamentos.</p>
+    <div id="lista-setores"></div>
+    <div class="acoes-topo">
+      <button class="btn sec" onclick="adicionarSetor()">+ Novo setor</button>
+      <button class="btn verde" onclick="salvarTudo()">💾 Salvar configuração</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script>
+const URL='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
+let SETORES=[];
+
+let _cb=0;
+function jsonp(params){
+  return new Promise((res,rej)=>{
+    const cb='__cb'+(_cb++);
+    const s=document.createElement('script');
+    const to=setTimeout(()=>{cleanup();rej(new Error('timeout'));},15000);
+    function cleanup(){clearTimeout(to);delete window[cb];s.remove();}
+    window[cb]=d=>{cleanup();res(d);};
+    s.onerror=()=>{cleanup();rej(new Error('erro'));};
+    s.src=URL+(URL.includes('?')?'&':'?')+params+'&callback='+cb+'&t='+Date.now();
+    document.body.appendChild(s);
+  });
+}
+async function api(params){
+  try{ return await jsonp(params); }catch(_){}
+  try{ const r=await fetch(URL+(URL.includes('?')?'&':'?')+params+'&t='+Date.now(),{cache:'no-store'}); if(r.ok) return JSON.parse(await r.text()); }catch(_){}
+  return null;
+}
+async function apiPost(params){
+  try{ const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:params}); if(r.ok) return JSON.parse(await r.text()); }catch(_){}
+  return await api(params);
+}
+function msg(t,x){ const m=document.getElementById('msg'); m.className='msg '+t; m.textContent=x; }
+
+/* ── Controle de acesso ── */
+function ehAdmin(){
+  const p=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
+  return p==='administrador' || p==='master';
+}
+function iniciar(){
+  if(sessionStorage.getItem('visia_user') && ehAdmin()){
+    document.getElementById('conteudo').style.display='block';
+    carregarSetores();
+  }else{
+    document.getElementById('login-ov').style.display='flex';
+  }
+}
+async function fazerLogin(){
+  const u=document.getElementById('lg-user').value.trim();
+  const p=document.getElementById('lg-pass').value.trim();
+  const erro=document.getElementById('lg-erro');
+  if(!u||!p){ erro.textContent='Preencha usuário e senha.'; return; }
+  erro.textContent='Verificando...';
+  const r=await api('action=login&usuario='+encodeURIComponent(u)+'&senha='+encodeURIComponent(p));
+  if(r&&r.ok){
+    sessionStorage.setItem('visia_user',r.usuario);
+    sessionStorage.setItem('visia_nome',r.nome||r.usuario);
+    sessionStorage.setItem('visia_perfil',(r.perfil||'').toLowerCase().trim());
+    if(ehAdmin()){
+      document.getElementById('login-ov').style.display='none';
+      document.getElementById('conteudo').style.display='block';
+      carregarSetores();
+    }else{
+      erro.textContent='Seu perfil não tem acesso a esta tela.';
+    }
+  }else{ erro.textContent=(r&&r.erro)||'Usuário ou senha inválidos.'; }
+}
+
+/* ── Carregar e renderizar ── */
+async function carregarSetores(){
+  msg('load','Carregando setores…');
+  const r=await api('action=listar_setores');
+  if(r&&r.ok){ SETORES=r.setores||[]; render(); msg('ok','Setores carregados.'); setTimeout(()=>{document.getElementById('msg').style.display='none';},1500); }
+  else{ msg('err','Falha ao carregar setores.'); }
+}
+
+// todos os destinos possíveis = Montagem + nomes dos setores
+function todosDestinos(){
+  const nomes=SETORES.map(s=>s.setor).filter(x=>x);
+  return ['Montagem', ...nomes];
+}
+
+function render(){
+  const cont=document.getElementById('lista-setores');
+  cont.innerHTML=SETORES.map((s,i)=>{
+    const chips=(s.destinos||[]).map((d,di)=>`<span class="chip">${d}<button onclick="removerDestino(${i},${di})">×</button></span>`).join('');
+    const opts=todosDestinos().filter(d=>d!==s.setor && !(s.destinos||[]).includes(d))
+      .map(d=>`<option value="${d}">${d}</option>`).join('');
+    return `<div class="setor-item">
+      <div class="setor-topo">
+        <input class="nome" value="${(s.setor||'').replace(/"/g,'&quot;')}" onchange="editarNome(${i},this.value)" placeholder="Nome do setor">
+        <label class="toggle"><input type="checkbox" ${s.ativo?'checked':''} onchange="editarAtivo(${i},this.checked)"> ativo</label>
+        <button class="btn del" onclick="removerSetor(${i})">Remover</button>
+      </div>
+      <div class="destinos-lbl">Entrega para:</div>
+      <div class="destinos-box">${chips||'<span style="font-size:12px;color:#9CA3AF;">nenhum destino</span>'}</div>
+      <div class="add-dest">
+        <select id="sel-${i}">${opts||'<option value="">(sem opções)</option>'}</select>
+        <button class="btn" onclick="adicionarDestino(${i})">+ destino</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function editarNome(i,v){ SETORES[i].setor=v.trim(); }
+function editarAtivo(i,v){ SETORES[i].ativo=v; }
+function removerSetor(i){ if(confirm('Remover o setor "'+SETORES[i].setor+'"?')){ SETORES.splice(i,1); render(); } }
+function adicionarSetor(){ SETORES.push({setor:'',destinos:[],ativo:true}); render(); }
+function adicionarDestino(i){
+  const sel=document.getElementById('sel-'+i);
+  const v=sel.value;
+  if(v && !SETORES[i].destinos.includes(v)){ SETORES[i].destinos.push(v); render(); }
+}
+function removerDestino(i,di){ SETORES[i].destinos.splice(di,1); render(); }
+
+async function salvarTudo(){
+  // valida nomes
+  for(const s of SETORES){ if(!s.setor.trim()){ msg('err','Todos os setores precisam de um nome.'); return; } }
+  msg('load','Salvando…');
+  const r=await apiPost('action=salvar_setores&setores='+encodeURIComponent(JSON.stringify(SETORES)));
+  if(r&&r.ok){ msg('ok','Configuração salva! ('+r.total+' setores)'); }
+  else{ msg('err','Falha ao salvar: '+((r&&r.erro)||'erro')); }
+}
+
+iniciar();
+</script>
+</body>
+</html>

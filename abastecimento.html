@@ -84,11 +84,8 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
   <a class="nav-voltar" href="index.html">&larr; Menu</a>
 </div>
 
-<div class="filtros">
+<div class="filtros" id="filtros">
   <button class="fbtn on" onclick="setFiltro('todos',this)">Todos</button>
-  <button class="fbtn" onclick="setFiltro('CAD',this)">Somente CAD</button>
-  <button class="fbtn" onclick="setFiltro('GRC',this)">Somente GRC</button>
-  <button class="fbtn" onclick="setFiltro('Célula de Estruturas',this)">Célula de Estruturas</button>
   <div class="legenda">
     <span class="lg"><span class="dot" style="background:#C4CDD8;"></span>A produzir</span>
     <span class="lg"><span class="dot" style="background:#1D9E75;"></span>Produzida</span>
@@ -141,6 +138,37 @@ async function apiPost(params){
   }catch(_){}
   // fallback: tenta via GET normal
   return await api(params);
+}
+
+// Configuração de setores: mapa setor(lowercase) -> lista de destinos
+let SETORES_MAP={};
+let SETORES_LISTA=[]; // nomes dos setores ativos (para os filtros)
+async function carregarConfigSetores(){
+  try{
+    const r=await api('action=listar_setores');
+    if(r&&r.ok&&r.setores){
+      r.setores.forEach(s=>{ SETORES_MAP[String(s.setor||'').toLowerCase().trim()]=s.destinos||[]; });
+      SETORES_LISTA=r.setores.filter(s=>s.ativo!==false).map(s=>s.setor);
+    }
+  }catch(_){}
+  if(SETORES_LISTA.length===0) SETORES_LISTA=['CAD','GRC','Célula de Estruturas']; // fallback
+  renderFiltros();
+}
+function renderFiltros(){
+  const cont=document.getElementById('filtros');
+  if(!cont) return;
+  let html=`<button class="fbtn on" onclick="setFiltro('todos',this)">Todos</button>`;
+  SETORES_LISTA.forEach(s=>{
+    html+=`<button class="fbtn" onclick="setFiltro('${s.replace(/'/g,"\\'")}',this)">${s}</button>`;
+  });
+  cont.innerHTML=html;
+}
+// Retorna o destino sugerido de uma peça a partir do setor dela (1º destino configurado).
+// Fallback: Célula->CAD/GRC (o que vira), demais->Montagem.
+function destinoDoSetor(setor, fallback){
+  const dest=SETORES_MAP[String(setor||'').toLowerCase().trim()];
+  if(dest && dest.length) return dest[0]; // primeiro destino ativo
+  return fallback||'Montagem';
 }
 
 function setFiltro(f,btn){
@@ -441,21 +469,21 @@ function montarListaTransporte(){
   MODULOS.forEach(m=>{
     const linhasTransporte=[];
     m.pecas.forEach(pc=>{
-      // peça normal solicitada: origem = setor de fabricação, destino = Montagem
+      // peça normal solicitada: origem = setor de fabricação, destino = configurado (fallback Montagem)
       if(pc.solicitado && pc.estado!=='entregue'){
         linhasTransporte.push({
           id: pc.id, setor: pc.setor_fabrica||'-', fab: pc.data_fab||'-',
           fabricada: pc.estado==='produzida',
-          origem: pc.setor_fabrica||'-', destino: 'Montagem'
+          origem: pc.setor_fabrica||'-', destino: destinoDoSetor(pc.setor_fabrica, 'Montagem')
         });
       }
-      // estrutura ligada solicitada: origem = Célula, destino = CAD/GRC (o que ela vira)
+      // estrutura ligada solicitada: origem = Célula, destino = o que ela vira (ou config da Célula)
       if(pc.estrutura && pc.estrutura.solicitado && pc.estrutura.estado!=='entregue'){
         const es=pc.estrutura;
         linhasTransporte.push({
           id: es.id, setor: 'Célula de Estruturas', fab: es.data_fab||'-',
           fabricada: es.estado==='produzida',
-          origem: 'Célula de Estruturas', destino: es.destino||es.vira_peca||'CAD/GRC'
+          origem: 'Célula de Estruturas', destino: es.destino||es.vira_peca||destinoDoSetor('Célula de Estruturas','CAD/GRC')
         });
       }
     });
@@ -475,15 +503,26 @@ function gerarListaTransporte(){
   if(itens.length===0){ alert('Nenhuma peca foi solicitada para transporte ainda.\n\nPrimeiro selecione as pecas nos cards e clique em "Solicitar transporte". Depois gere a lista.'); return; }
   // passo 1: escolher data, observação e conferir origem/destino
   const hojeIso=new Date().toISOString().slice(0,10);
-  // opções de destino com pavilhões
-  const DESTINOS=['Montagem Monoblocos Pesados (Pav 1)','Montagem Fast Flex (Pav 9)','CAD (Pav 3)','CAD (Pav 4)','CAD (Pav 5)','GRC (Pav 6)','GRC (Pav 7)'];
-  // sugere o destino conforme o destino atual da peça (CAD->Pav 3, GRC->Pav 6, Montagem->Pesados)
+  // opções de destino: pavilhões fixos + destinos que aparecem na config de setores
+  const DESTINOS_FIXOS=['Montagem Monoblocos Pesados (Pav 1)','Montagem Fast Flex (Pav 9)','CAD (Pav 3)','CAD (Pav 4)','CAD (Pav 5)','GRC (Pav 6)','GRC (Pav 7)'];
+  // reúne todos os destinos configurados (ex: Serralheria, Terceiros) que não sejam CAD/GRC/Montagem já cobertos
+  const destinosConfig=new Set();
+  Object.values(SETORES_MAP).forEach(lista=>(lista||[]).forEach(d=>destinosConfig.add(d)));
+  const extras=[...destinosConfig].filter(d=>{
+    const u=d.toUpperCase();
+    return u.indexOf('CAD')===-1 && u.indexOf('GRC')===-1 && u.indexOf('MONTAGEM')===-1;
+  });
+  const DESTINOS=[...DESTINOS_FIXOS, ...extras];
+  // sugere o destino conforme o destino atual da peça
   function sugereDestino(d){
-    d=String(d||'').toUpperCase();
-    if(d.indexOf('GRC')>-1) return 'GRC (Pav 6)';
-    if(d.indexOf('CAD')>-1) return 'CAD (Pav 3)';
-    if(d.indexOf('FAST')>-1) return 'Montagem Fast Flex (Pav 9)';
-    if(d.indexOf('MONTAGEM')>-1) return 'Montagem Monoblocos Pesados (Pav 1)';
+    const orig=String(d||'');
+    const u=orig.toUpperCase();
+    if(u.indexOf('GRC')>-1) return 'GRC (Pav 6)';
+    if(u.indexOf('CAD')>-1) return 'CAD (Pav 3)';
+    if(u.indexOf('FAST')>-1) return 'Montagem Fast Flex (Pav 9)';
+    if(u.indexOf('MONTAGEM')>-1) return 'Montagem Monoblocos Pesados (Pav 1)';
+    // destino configurado (ex: Serralheria, Terceiros): usa o texto direto se estiver na lista
+    if(extras.includes(orig)) return orig;
     return '';
   }
   // monta as linhas editáveis de origem/destino
@@ -714,6 +753,7 @@ async function carregar(){
   }else{ document.getElementById('status').textContent='Erro ao carregar. Verifique o script.'; }
 }
 mostrarUser();
+carregarConfigSetores();
 carregar();
 carregarUltimaLista();
 setInterval(carregar, 30000);

@@ -208,9 +208,19 @@ function cliqueToggle(linha,id,estaDisp){
 }
 
 let _modalLoc=null;
+let SETORES_CONFIG=['CAD','GRC','Célula de Estruturas']; // fallback, atualizado ao carregar
+async function carregarSetoresConfig(){
+  try{
+    const r=await api('action=listar_setores');
+    if(r&&r.ok&&r.setores&&r.setores.length){
+      SETORES_CONFIG=r.setores.filter(s=>s.ativo!==false).map(s=>s.setor);
+    }
+  }catch(_){}
+}
 function abrirLocalizacao(linha,id){
   fecharLocalizacao();
-  const setores=['CAD','Montagem','GRC','Célula de Estruturas'];
+  // Montagem sempre é opção (é o destino final), + os setores configurados
+  const setores=['Montagem', ...SETORES_CONFIG.filter(s=>s.toLowerCase()!=='montagem')];
   const posicoes=[1,2,3,4,5];
   const m=document.createElement('div');
   m.id='modal-loc';
@@ -372,6 +382,7 @@ function imprimirTodos(){
 
 function aoLogar(){ carregar(); }
 checarLogin();
+carregarSetoresConfig();
 if(USUARIO_LOGADO) carregar();
 </script>
 <script>

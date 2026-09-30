@@ -108,7 +108,7 @@ tr:hover td{background:#F7F9FB;}
             <div class="fld"><label>Nome da peça</label><input id="np-nome" placeholder="Ex: Stud Frame"></div>
             <div class="fld"><label>Serial (código de barras)</label><input id="np-serial" placeholder="Ex: 789012345"></div>
             <div class="fld"><label>Setor que fabrica</label>
-              <select id="np-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select></div>
+              <select id="np-setorfab"><option value="">—</option></select></div>
             <div class="fld"><label>Data prev. fabricação</label><input id="np-datafab" type="date"></div>
             <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira → ID da peça</label><input id="np-vira" placeholder="Ex: Piso CAD"></div>
             <div class="fld" id="fld-np-viranome" style="display:none;"><label>Vira → Nome</label><input id="np-viranome" placeholder="Ex: Piso CAD 6x3m"></div>
@@ -142,7 +142,7 @@ tr:hover td{background:#F7F9FB;}
       <div class="fld"><label>Nome da peça</label><input id="pc-nome" placeholder="Ex: Tubo 40x40"></div>
       <div class="fld"><label>Serial (código de barras)</label><input id="pc-serial" placeholder="Ex: 789012345"></div>
       <div class="fld"><label>Setor que fabrica</label>
-        <select id="pc-setorfab"><option value="">—</option><option value="CAD">CAD</option><option value="GRC">GRC</option><option value="Célula de Estruturas">Célula de Estruturas</option></select>
+        <select id="pc-setorfab"><option value="">—</option></select>
       </div>
       <div class="fld"><label>Data prev. fabricação</label><input id="pc-datafab" type="date"></div>
       <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira → ID da peça</label><input id="pc-vira" placeholder="Ex: Piso CAD"></div>
@@ -696,9 +696,28 @@ function toggleViraPeca(){
 document.getElementById('np-setorfab').addEventListener('change',toggleViraPeca);
 document.getElementById('pc-setorfab').addEventListener('change',toggleViraPeca);
 
+// Carrega os setores da configuração e preenche os selects (com fallback para os padrão)
+async function carregarSetoresConfig(){
+  let setores=['CAD','GRC','Célula de Estruturas']; // fallback
+  try{
+    const r=await api('action=listar_setores');
+    if(r&&r.ok&&r.setores&&r.setores.length){
+      setores=r.setores.filter(s=>s.ativo!==false).map(s=>s.setor);
+    }
+  }catch(_){}
+  ['np-setorfab','pc-setorfab'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel) return;
+    const atual=sel.value;
+    sel.innerHTML='<option value="">—</option>'+setores.map(s=>`<option value="${s}">${s}</option>`).join('');
+    if(atual) sel.value=atual;
+  });
+}
+
 function aoLogar(){ renderCascata(); carregarProdutos(); }
 renderCascata();
 checarLogin();
+carregarSetoresConfig();
 if(USUARIO_LOGADO) carregarProdutos();
 </script>
 <script>

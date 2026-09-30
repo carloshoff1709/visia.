@@ -128,6 +128,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="nome">Cadastro</div>
         <div class="desc">Cadastrar produtos e peças, com seriais e código de barras.</div>
       </a>
+      <a class="card" data-mod="setores" href="setores.html">
+        <div class="top"><div class="ico" style="background:#EDE4FA;">🔀</div><span class="arrow">→</span></div>
+        <div class="nome">Setores e Fluxos</div>
+        <div class="desc">Configurar setores de fornecimento e para quem cada um entrega.</div>
+      </a>
     </div>
   </div>
 
@@ -159,7 +164,7 @@ const MOD_RESTRITOS=['conferencia','leitor','cadastro']; // exigem login
 const AREA_DO_MOD={
   conferencia:'estoque', leitor:'estoque',
   abastecimento:'logistica',
-  cadastro:'administracao'
+  cadastro:'administracao', setores:'administracao'
 };
 
 let _cbi=0;
@@ -188,10 +193,10 @@ const PERMISSOES={
   visualizador:  ['abastecimento'],
   // Apontador: Logística + Estoque (conferência e leitor)
   apontador:     ['abastecimento','conferencia','leitor'],
-  // Administrador: tudo do Apontador + Cadastro
-  administrador: ['abastecimento','conferencia','leitor','cadastro'],
+  // Administrador: tudo do Apontador + Cadastro + Setores
+  administrador: ['abastecimento','conferencia','leitor','cadastro','setores'],
   // Master: tudo
-  master:        ['abastecimento','conferencia','leitor','cadastro']
+  master:        ['abastecimento','conferencia','leitor','cadastro','setores']
 };
 function perfilPermite(mod){
   const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();

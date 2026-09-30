@@ -18,7 +18,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .top{padding:14px 18px;text-align:center;background:#1A2540;}
 .top h1{font-size:16px;font-weight:700;}
 .setor-badge{display:inline-block;margin-top:6px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;}
-.b-cad{background:#8B5CF6;} .b-grc{background:#EF9F27;} .b-mont{background:#1D9E75;} .b-cel{background:#6D4AAE;}
+.b-cad{background:#8B5CF6;} .b-grc{background:#EF9F27;} .b-mont{background:#1D9E75;} .b-cel{background:#6D4AAE;} .b-outro{background:#185FA5;}
 .escolha{padding:40px 20px;text-align:center;}
 .escolha h2{font-size:16px;margin-bottom:6px;}
 .escolha p{font-size:13px;color:#9CA3AF;margin-bottom:24px;}
@@ -53,11 +53,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="escolha" id="escolha">
   <h2>Qual setor é este leitor?</h2>
   <p>Escolha uma vez. Fica gravado neste aparelho.</p>
-  <div class="setores">
+  <div class="setores" id="setores-botoes">
     <button class="b-mont" onclick="definirSetor('Montagem')">🏭 MONTAGEM</button>
-    <button class="b-cad" onclick="definirSetor('CAD')">📐 CAD</button>
-    <button class="b-grc" onclick="definirSetor('GRC')">🧱 GRC</button>
-    <button class="b-cel" onclick="definirSetor('Célula de Estruturas')">🏗️ CÉLULA DE ESTRUTURAS</button>
   </div>
 </div>
 
@@ -81,7 +78,14 @@ let ultimaLeitura={id:'',t:0};
 const urlParams=new URLSearchParams(location.search);
 if(urlParams.get('setor')){ SETOR=urlParams.get('setor'); localStorage.setItem('leitor_setor',SETOR); }
 
-function classeSetor(s){ return s==='CAD'?'b-cad':s==='GRC'?'b-grc':(s&&s.toLowerCase()==='célula de estruturas')?'b-cel':'b-mont'; }
+function classeSetor(s){
+  const l=(s||'').toLowerCase();
+  if(l==='cad') return 'b-cad';
+  if(l==='grc') return 'b-grc';
+  if(l.indexOf('célula')>-1||l.indexOf('celula')>-1) return 'b-cel';
+  if(l==='montagem') return 'b-mont';
+  return 'b-outro'; // setores novos (Serralheria, Terceiros, etc.)
+}
 function mostrarBadge(){
   document.getElementById('badge-wrap').innerHTML=`<span class="setor-badge ${classeSetor(SETOR)}">Setor: ${SETOR}</span>`;
 }
@@ -321,6 +325,27 @@ function beep(){
 }
 
 function toast(t,txt){const el=document.getElementById('toast');el.className='toast '+t;el.textContent=txt;el.style.display='block';clearTimeout(el._to);el._to=setTimeout(()=>el.style.display='none',2200);}
+
+/* Carrega os setores da configuração e gera os botões (Montagem sempre presente) */
+async function carregarSetoresBotoes(){
+  let setores=['CAD','GRC','Célula de Estruturas']; // fallback
+  try{
+    const r=await api('action=listar_setores');
+    if(r&&r.ok&&r.setores&&r.setores.length){
+      setores=r.setores.filter(s=>s.ativo!==false).map(s=>s.setor);
+    }
+  }catch(_){}
+  const cont=document.getElementById('setores-botoes');
+  if(!cont) return;
+  const icone=s=>{ const l=s.toLowerCase(); if(l==='cad')return '📐'; if(l==='grc')return '🧱'; if(l.indexOf('célula')>-1||l.indexOf('celula')>-1)return '🏗️'; if(l.indexOf('serralh')>-1)return '⚙️'; if(l.indexOf('terceiro')>-1)return '🚚'; return '📦'; };
+  // Montagem primeiro, depois os setores configurados
+  let html=`<button class="b-mont" onclick="definirSetor('Montagem')">🏭 MONTAGEM</button>`;
+  setores.filter(s=>s.toLowerCase()!=='montagem').forEach(s=>{
+    html+=`<button class="${classeSetor(s)}" onclick="definirSetor('${s.replace(/'/g,"\\'")}')">${icone(s)} ${s.toUpperCase()}</button>`;
+  });
+  cont.innerHTML=html;
+}
+carregarSetoresBotoes();
 
 /* Se já tem setor salvo, inicia direto */
 if(SETOR){ iniciar(); }
