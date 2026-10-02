@@ -341,39 +341,70 @@ function processarLinhasImport(linhas){
     if(base.toUpperCase().endsWith(suf.toUpperCase())) return base;
     return base+suf;
   };
-  // agrupa por id_produto
+  // helper para ler uma coluna de uma linha (aceita variações de nome)
+  const campo=(l,nomes)=>{ for(const n of nomes){ for(const k in l){ if(k.toLowerCase().trim()===n) return String(l[k]).trim(); } } return ''; };
+  const ehSim=v=>{ const t=String(v||'').trim().toLowerCase(); return t==='sim'||t==='s'||t==='x'||t==='true'||t==='1'; };
+  const normSetor=v=>{ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); };
+
+  // primeiro, extrai os dados básicos de cada linha (preservando a ORDEM)
+  const linhasDados=linhas.map(l=>{
+    const idProd=campo(l,['id_produto','idproduto']);
+    const idPeca=campo(l,['id_peca','idpeca']);
+    if(!idProd||!idPeca) return null;
+    return {
+      idProd,
+      nome_produto:campo(l,['nome_produto','nomeproduto']),
+      data_programada:normalizarData(campo(l,['data_programada','dataprogramada'])),
+      id_peca_base:idPeca,
+      nome_peca:campo(l,['nome_peca','nomepeca']),
+      serial:campo(l,['serial','codigo_barras','serial (codigo de barras)']),
+      setor_fabrica:normSetor(campo(l,['setor_fabrica','setorfabrica','setor que fabrica'])),
+      data_fabricacao:normalizarData(campo(l,['data_fabricacao','datafabricacao','data prev. fabricacao'])),
+      // novo padrão: coluna "vira?" (SIM/NAO)
+      vira_flag:campo(l,['vira_peca?','vira?','vira peca?','vira a peça?','vira a peca?','vira']),
+      // compatibilidade com o formato antigo (colunas vira_* preenchidas direto)
+      vira_peca_old:campo(l,['vira_peca','virapeca']),
+      vira_nome_old:campo(l,['vira_nome','viranome']),
+      vira_serial_old:campo(l,['vira_serial','viraserial']),
+      vira_data_old:normalizarData(campo(l,['vira_data','viradata']))
+    };
+  });
+
   const mapa={};
   const ordem=[];
-  linhas.forEach(l=>{
-    // aceita variações de nome de coluna (case-insensitive, com/sem acento)
-    const g=(nomes)=>{ for(const n of nomes){ for(const k in l){ if(k.toLowerCase().trim()===n) return String(l[k]).trim(); } } return ''; };
-    const idProd=g(['id_produto','idproduto']);
-    if(!idProd) return;
-    if(!mapa[idProd]){
-      mapa[idProd]={
-        id_produto:idProd,
-        nome_produto:g(['nome_produto','nomeproduto']),
-        data_programada:normalizarData(g(['data_programada','dataprogramada'])),
-        pecas:[]
-      };
-      ordem.push(idProd);
+  for(let i=0;i<linhasDados.length;i++){
+    const d=linhasDados[i];
+    if(!d) continue;
+    if(!mapa[d.idProd]){
+      mapa[d.idProd]={ id_produto:d.idProd, nome_produto:d.nome_produto, data_programada:d.data_programada, pecas:[] };
+      ordem.push(d.idProd);
     }
-    const idPecaBase=g(['id_peca','idpeca']);
-    if(idPecaBase){
-      const viraBase=g(['vira_peca','virapeca','vira a peca','vira a peça']);
-      mapa[idProd].pecas.push({
-        id_peca:idUnico(idPecaBase, idProd),   // monta o ID único automaticamente
-        nome_peca:g(['nome_peca','nomepeca']),
-        serial:g(['serial','codigo_barras','serial (codigo de barras)']),
-        setor_fabrica:(function(v){ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); })(g(['setor_fabrica','setorfabrica','setor que fabrica'])),
-        vira_peca: viraBase ? idUnico(viraBase, idProd) : '',  // o vínculo também vira ID único
-        vira_nome:g(['vira_nome','viranome']),
-        vira_serial:g(['vira_serial','viraserial']),
-        vira_data:normalizarData(g(['vira_data','viradata'])),
-        data_fabricacao:normalizarData(g(['data_fabricacao','datafabricacao','data prev. fabricacao']))
-      });
+    // define o vínculo vira_*
+    let vira_peca='', vira_nome='', vira_serial='', vira_data='';
+    if(d.vira_flag){
+      // NOVO padrão: "vira?" preenchido. Se SIM, pega a peça da LINHA DE BAIXO como o que ela vira.
+      if(ehSim(d.vira_flag)){
+        const prox=linhasDados[i+1];
+        if(prox && prox.idProd===d.idProd){
+          vira_peca=idUnico(prox.id_peca_base, d.idProd);
+          vira_nome=prox.nome_peca;
+          vira_serial=prox.serial;
+          vira_data=prox.data_fabricacao;
+        }
+      }
+      // se "não", fica tudo vazio (estrutura individual, vai pra montagem)
+    } else if(d.vira_peca_old){
+      // formato ANTIGO: colunas vira_* preenchidas direto
+      vira_peca=idUnico(d.vira_peca_old, d.idProd);
+      vira_nome=d.vira_nome_old; vira_serial=d.vira_serial_old; vira_data=d.vira_data_old;
     }
-  });
+    mapa[d.idProd].pecas.push({
+      id_peca:idUnico(d.id_peca_base, d.idProd),
+      nome_peca:d.nome_peca, serial:d.serial, setor_fabrica:d.setor_fabrica,
+      data_fabricacao:d.data_fabricacao,
+      vira_peca, vira_nome, vira_serial, vira_data
+    });
+  }
   IMPORT_DADOS=ordem.map(id=>mapa[id]);
   mostrarPreviewImport();
 }
