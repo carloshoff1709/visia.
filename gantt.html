@@ -38,7 +38,7 @@
   .cab{position:sticky;top:0;z-index:4;background:#fff;}
   .cab .esq{z-index:5;font-size:12px;color:var(--suave);}
   .meses,.dias{position:relative;height:22px;}
-  .mes{position:absolute;top:0;height:22px;font-size:12px;font-weight:700;color:var(--texto);padding:3px 6px;border-left:1px solid var(--linha);white-space:nowrap;}
+  .mes{position:absolute;top:0;height:22px;font-size:12px;font-weight:700;color:var(--texto);padding:3px 4px;border-left:1px solid var(--linha);white-space:nowrap;text-align:center;overflow:hidden;text-overflow:ellipsis;}
   .dia{position:absolute;top:0;height:22px;font-size:10px;color:var(--suave);text-align:center;line-height:22px;border-left:1px solid #F3F4F6;}
   .dia.fds{background:#FAFAFB;}
 
@@ -184,13 +184,20 @@ function desenhar(){
 
   // cabeçalho: meses e dias
   let meses='', dias='', fds='';
-  let mesAtual=-1;
+  let mesAtual=-1, inicioMes=INI;
+  // rótulo do mês centralizado no espaço que o mês ocupa (do 1º ao último dia visível)
+  const rotuloMes=(ini,fim)=>{ const x=new Date(ini*86400000);
+    return `<div class="mes" style="left:${px(ini)}px;width:${(fim-ini+1)*DIA}px" title="${MESES[x.getUTCMonth()]} ${x.getUTCFullYear()}">${MESES[x.getUTCMonth()]} ${x.getUTCFullYear()}</div>`; };
   for(let d=INI; d<=FIM; d++){
     const x=new Date(d*86400000), wd=x.getUTCDay(), fim=(wd===0||wd===6);
-    if(x.getUTCMonth()!==mesAtual){ mesAtual=x.getUTCMonth(); meses+=`<div class="mes" style="left:${px(d)}px">${MESES[mesAtual]} ${x.getUTCFullYear()}</div>`; }
+    if(x.getUTCMonth()!==mesAtual){
+      if(mesAtual!==-1) meses+=rotuloMes(inicioMes,d-1);   // fecha o mês anterior
+      mesAtual=x.getUTCMonth(); inicioMes=d;
+    }
     dias+=`<div class="dia${fim?' fds':''}" style="left:${px(d)}px;width:${DIA}px">${DIA>=20?x.getUTCDate():''}</div>`;
     if(fim) fds+=`<div class="fdsbg" style="left:${px(d)}px;width:${DIA}px"></div>`;
   }
+  meses+=rotuloMes(inicioMes,FIM);   // fecha o último mês
   h+=`<div class="row cab"><div class="esq">Módulo / peça</div><div class="faixa" style="width:${largura}px"><div class="meses">${meses}</div><div class="dias">${dias}</div></div></div>`;
 
   const linhaHoje=(hoje>=INI&&hoje<=FIM)?`<div class="hoje" style="left:${px(hoje)+DIA/2}px" title="Hoje"></div>`:'';
