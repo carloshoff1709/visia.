@@ -134,7 +134,11 @@ function fmt(d){ const x=new Date(d*86400000); return String(x.getUTCDate()).pad
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 function px(d){ return (d-INI)*DIA; }
 /* tira o sufixo do produto do ID da peça (o produto já está na linha do módulo) */
-function idCurto(id){ const m=String(id||'').match(/^(.*?)-(CI-\d+-\d+-P\d+)$/i); return m?m[1]:String(id||''); }
+function idCurto(id, idProd){
+  id=String(id||'');
+  if(idProd){ const suf='-'+String(idProd).replace(/\s*-\s*/g,'-').replace(/\s+/g,'').toUpperCase(); if(id.toUpperCase().endsWith(suf)) return id.slice(0,-suf.length); }
+  const m=id.match(/^(.*?)-([A-Z]{1,5}-\d+-\d+-P\d+)$/i); return m?m[1]:id;
+}
 
 /* posição da peça em relação à janela do módulo */
 function fase(dfab,ent,sai){
@@ -223,7 +227,7 @@ function desenhar(){
           ? `<div class="mk ${p.estado||'a_produzir'} ${f}" style="left:${px(d)+DIA/2-8}px" title="${p.id}: fabricação ${p.data_fab}, ${estadoTxt}${nomeFase}"></div>`
           : `<div class="semdata">sem data de fabricação</div>`;
         h+=`<div class="row peca${p.estr?' estr':''}">
-          <div class="esq"><span class="id" title="${p.id}">${p.estr?'↳ ':''}${idCurto(p.id)}</span><span class="nm">${p.nome||''}</span></div>
+          <div class="esq"><span class="id" title="${p.id}">${p.estr?'↳ ':''}${p.nome||idCurto(p.id,m.id_produto)}</span><span class="nm">${p.nome?idCurto(p.id,m.id_produto):''}</span></div>
           <div class="faixa" style="width:${largura}px">${fds}${janela}${linhaHoje}${marcador}</div>
         </div>`;
       });

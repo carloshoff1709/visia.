@@ -764,7 +764,7 @@ function nomePorId(id){
   // tenta o ID inteiro
   if(NOMES_PADRAO[id]) return NOMES_PADRAO[id];
   // tenta o código base (antes do -CI-...)
-  const m=id.match(/^(.*?)-CI-\d+-\d+-P\d+$/i);
+  const m=id.match(/^(.*?)-[A-Z]{1,5}-\d+-\d+-P\d+$/i);  // qualquer sigla de produto (CI, MI...)
   if(m && NOMES_PADRAO[m[1]]) return NOMES_PADRAO[m[1]];
   // tenta achar um código base que seja prefixo
   for(const base in NOMES_PADRAO){ if(id===base) return NOMES_PADRAO[base]; }

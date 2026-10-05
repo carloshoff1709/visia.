@@ -39,6 +39,10 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .peca .ptopo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .peca .pnome{font-size:12px;font-weight:600;white-space:nowrap;}
 .peca .pprod{font-size:9px;color:#B4BCC7;font-weight:500;white-space:nowrap;}
+.peca .pnomepeca{font-size:11px;color:#6B7280;font-weight:500;}
+.peca .pidpeca{font-size:11px;color:#6B7280;font-weight:500;white-space:nowrap;}
+.exp-ico{font-size:10px;color:#185FA5;flex-shrink:0;width:14px;}
+.peca .ploc{font-size:10px;color:#158060;font-weight:600;background:#E8F6F0;padding:1px 6px;border-radius:5px;margin-left:4px;}
 .peca .pmeta{font-size:10px;color:#9CA3AF;}
 .peca .pdot{width:12px;height:12px;border-radius:4px;flex-shrink:0;}
 .peca .pmeta{font-size:10px;color:#9CA3AF;}
@@ -110,6 +114,11 @@ const PERFIS_SOLICITA=['solicitante','gestao_fluxo','todos','master'];
 let MODULOS=[];
 let FILTRO='todos';
 let SEL={};
+let EXPANDIDOS=new Set(); // produtos com card expandido
+function toggleExpandir(idProd){
+  if(EXPANDIDOS.has(idProd)) EXPANDIDOS.delete(idProd); else EXPANDIDOS.add(idProd);
+  render();
+}
 
 let _cb=0;
 function jsonp(params){
@@ -182,12 +191,30 @@ function setFiltro(f,btn){
 }
 // Separa o ID da peça do sufixo do produto. Ex: "EST-PISO-P-CI-1-06-P2"
 // -> { principal:"EST-PISO-P", produto:"CI-1-06-P2" }. O produto aparece discreto.
-function formatarId(id){
+function formatarId(id, idProd){
   id=String(id||'');
-  // procura o padrão do produto: CI-<num>-<num>-P<num> no fim
-  const m=id.match(/^(.*?)-(CI-\d+-\d+-P\d+)$/i);
-  if(m) return { principal:m[1], produto:m[2] };
-  return { principal:id, produto:'' };
+  // 1º: recorta o sufixo do PRÓPRIO produto do card (vale para CI, MI ou qualquer sigla)
+  if(idProd){
+    const suf='-'+String(idProd).replace(/\s*-\s*/g,'-').replace(/\s+/g,'').toUpperCase();
+    if(id.toUpperCase().endsWith(suf)) return { principal:id.slice(0,-suf.length), produto:'' };
+  }
+  // reserva: qualquer sigla no padrão XX-<n>-<n>-P<n>
+  const m=id.match(/^(.*?)-([A-Z]{1,5}-\d+-\d+-P\d+)$/i);
+  return { principal: m?m[1]:id, produto:'' };
+}
+
+// Mostra onde a peça está, quando já produzida (local/varal/buffer informado no apontamento)
+function localExibir(pc){
+  // só mostra se a peça está produzida/disponível (não faz sentido antes)
+  if(pc.estado!=='produzida' && pc.estado!=='entregue') return '';
+  const loc=(pc.posicao||'').trim();
+  const setor=(pc.setor_atual||'').trim();
+  let onde='';
+  if(loc && setor) onde=setor+' · '+loc;
+  else if(loc) onde=loc;
+  else if(setor) onde=setor;
+  if(!onde) return '';
+  return ` <span class="ploc">📍 ${onde}</span>`;
 }
 
 function pecaVisivel(pc){
@@ -250,12 +277,15 @@ function render(){
       const setorTag=pc.setor_fabrica?`<span class="psetor"${setorEstilo}>${setorLabel}</span>`:'';
       const data=pc.data_fab?`fab ${pc.data_fab}`:'';
       const podeselecionar = pc.linha && pc.estado!=='entregue';
-      const idFmt=formatarId(pc.id);
+      const idFmt=formatarId(pc.id, m.id_produto);
+      // nome em destaque e ID ao lado; sem nome cadastrado, mostra só o ID
+      const rotuloPeca = pc.nome ? `<span class="pnome">${pc.nome}</span><span class="pidpeca">${idFmt.principal}</span>` : `<span class="pnome">${idFmt.principal}</span>`;
+      const localPeca = localExibir(pc);  // local quando produzida (varal/buffer/setor)
       let html=`<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
         <span class="pdot"></span>
         <div class="pinfo">
-          <div class="ptopo"><span class="pnome">${idFmt.principal}</span>${idFmt.produto?`<span class="pprod">${idFmt.produto}</span>`:''}${setorTag}</div>
-          <span class="pmeta">${data}</span>
+          <div class="ptopo">${rotuloPeca}${setorTag}</div>
+          <span class="pmeta">${data}${localPeca}</span>
         </div>
       </div>`;
       // estrutura ligada (Célula de Estruturas): aparece recuada sob a peça que ela vira
@@ -265,13 +295,15 @@ function render(){
         const essel=(es.linha && SEL[es.linha])?' sel':'';
         const esdata=es.data_fab?`fab ${es.data_fab}`:'';
         const espode = es.linha && es.estado!=='entregue';
-        const esIdFmt=formatarId(es.id);
-        const viraFmt=formatarId(es.vira_peca);
+        const esIdFmt=formatarId(es.id, m.id_produto);
+        const viraFmt=formatarId(es.vira_peca, m.id_produto);
+        const esRotulo = es.nome ? `<span class="pnome">↳ ${es.nome}</span><span class="pidpeca">${esIdFmt.principal}</span>` : `<span class="pnome">↳ ${esIdFmt.principal}</span>`;
+        const esLocal = localExibir(es);
         html+=`<div class="peca estrutura ${escls}${essel}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
           <span class="pdot"></span>
           <div class="pinfo">
-            <div class="ptopo"><span class="pnome">↳ ${esIdFmt.principal}</span><span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
-            <span class="pmeta">${esdata} · vira ${viraFmt.principal}</span>
+            <div class="ptopo">${esRotulo}<span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
+            <span class="pmeta">${esdata} · vira ${viraFmt.principal}${esLocal}</span>
           </div>
         </div>`;
       }
@@ -286,18 +318,20 @@ function render(){
     const chk = linhasTodas.length>0
       ? `<span class="card-chk ${todasSelC?'on':(algumaSelC?'partial':'')}">${todasSelC?'&#10003;':(algumaSelC?'&#8211;':'')}</span>`
       : '';
-    const headClick = linhasTodas.length>0 ? `onclick='toggleCard(${JSON.stringify(linhasTodas)})' style="cursor:pointer;"` : '';
+    const headClick = linhasTodas.length>0 ? `onclick='event.stopPropagation();toggleCard(${JSON.stringify(linhasTodas)})' style="cursor:pointer;"` : '';
+    const expandido = EXPANDIDOS.has(m.id_produto);
     return `<div class="card${concluido}">
-      <div class="card-head" ${headClick}>
+      <div class="card-head" onclick="toggleExpandir('${m.id_produto.replace(/'/g,"\\'")}')" style="cursor:pointer;">
         <div style="display:flex;align-items:center;gap:8px;">
-          ${chk}
+          <span class="exp-ico">${expandido?'▼':'▶'}</span>
+          <span ${headClick}>${chk}</span>
           <div style="flex:1;">
             <div class="nome">${m.id_produto} - ${m.nome_produto}</div>
-            <div class="meta">Entrada: ${m.data_entrada||'-'} - ${pecasFiltradas.length} peca(s)${linhasSelec.length>0?' - toque no titulo p/ selecionar tudo':''}</div>
+            <div class="meta">Entrada: ${m.data_entrada||'-'} · ${pecasFiltradas.length} peça(s) · ${expandido?'toque para recolher':'toque para ver as peças'}</div>
           </div>
         </div>
       </div>
-      <div class="card-body">${linhas}</div>
+      <div class="card-body" style="display:${expandido?'block':'none'};">${linhas}</div>
     </div>`;
   }).join('');
   grid.innerHTML=cards||'<div class="vazio">Nenhuma peca para este filtro.</div>';
