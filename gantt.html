@@ -41,6 +41,7 @@
   .mes{position:absolute;top:0;height:22px;font-size:12px;font-weight:700;color:var(--texto);padding:3px 4px;border-left:1px solid var(--linha);white-space:nowrap;text-align:center;overflow:hidden;text-overflow:ellipsis;}
   .dia{position:absolute;top:0;height:22px;font-size:10px;color:var(--suave);text-align:center;line-height:22px;border-left:1px solid #F3F4F6;}
   .dia.fds{background:#FAFAFB;}
+  .dia.hojedia{background:var(--vermelho);color:#fff;font-weight:700;border-radius:4px;}
 
   /* fundo de grade (fins de semana) e linha de hoje */
   .fdsbg{position:absolute;top:0;bottom:0;background:#FAFAFB;}
@@ -90,6 +91,7 @@
   <button onclick="zoom(1)" aria-label="Aumentar zoom">+</button>
   <button onclick="irParaHoje()">Ir para hoje</button>
   <div class="legenda">
+    <span><span style="width:2px;height:12px;background:var(--vermelho);display:inline-block;"></span>Hoje</span>
     <span><span class="lg-dot" style="background:var(--azul);border-radius:3px;"></span>Módulo na linha</span>
     <span><span class="lg-dot" style="background:#fff;border:2px solid var(--cinza);"></span>A produzir</span>
     <span><span class="lg-dot" style="background:var(--verde);"></span>Produzida</span>
@@ -194,7 +196,8 @@ function desenhar(){
       if(mesAtual!==-1) meses+=rotuloMes(inicioMes,d-1);   // fecha o mês anterior
       mesAtual=x.getUTCMonth(); inicioMes=d;
     }
-    dias+=`<div class="dia${fim?' fds':''}" style="left:${px(d)}px;width:${DIA}px">${DIA>=20?x.getUTCDate():''}</div>`;
+    const ehHoje=(d===hoje);
+    dias+=`<div class="dia${fim?' fds':''}${ehHoje?' hojedia':''}" style="left:${px(d)}px;width:${DIA}px" ${ehHoje?'title="Hoje"':''}>${ehHoje&&DIA<20?'●':(DIA>=20?x.getUTCDate():'')}</div>`;
     if(fim) fds+=`<div class="fdsbg" style="left:${px(d)}px;width:${DIA}px"></div>`;
   }
   meses+=rotuloMes(inicioMes,FIM);   // fecha o último mês
