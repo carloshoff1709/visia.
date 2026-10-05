@@ -253,8 +253,9 @@ async function marcar(id,pos){
   if(r&&r.ok){
     beep();
     const unid = (r.total>1) ? ` [${r.unidade}/${r.total}]` : '';
-    addFeed('✅', (r.id_peca||id)+unid, (r.nome||'')+' → '+SETOR+(pos?(' · varal '+pos):''));
-    toast('ok',(r.id_peca||id)+' em '+SETOR+unid);
+    const mod = r.produto ? (' · módulo '+r.produto) : '';  // para qual módulo a bipagem foi
+    addFeed('✅', (r.id_peca||id)+unid, (r.nome||'')+' → '+SETOR+(pos?(' · varal '+pos):'')+mod);
+    toast('ok',(r.id_peca||id)+' em '+SETOR+unid+mod);
   }else if(r&&r.todas_marcadas){
     addFeed('⚠️', id, 'todas as '+r.total+' unidade(s) já em '+SETOR);
     toast('err','Todas já em '+SETOR);

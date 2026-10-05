@@ -65,6 +65,16 @@ tr:hover td{background:#F7F9FB;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
+<datalist id="codigos-padrao">
+  <option value="EST-PISO-P">Estrutura Piso Padrão</option>
+  <option value="PISO-CAD-P">Piso CAD Padrão</option>
+  <option value="EST-PISO-E">Estrutura Piso Específico</option>
+  <option value="PISO-CAD-E">Piso CAD Específico</option>
+  <option value="EST-TETO-E">Estrutura Teto Específico</option>
+  <option value="TETO-GRC-E">Teto GRC Específico</option>
+  <option value="EST-TETO-P">Estrutura Teto Padrão</option>
+  <option value="TETO-GRC-P">Teto GRC Padrão</option>
+</datalist>
 
 <div id="login-overlay">
   <div id="login-box">
@@ -104,8 +114,8 @@ tr:hover td{background:#F7F9FB;}
         <label style="font-weight:700;color:#374151;">Peças necessárias — cadastre uma a uma</label>
         <div style="background:#EEF3F8;border:1px solid #D3E0EC;border-radius:10px;padding:12px;margin-top:6px;">
           <div class="row" style="margin-bottom:8px;">
-            <div class="fld"><label>ID da peça *</label><input id="np-id" placeholder="Ex: P010 ou GRC-A099"></div>
-            <div class="fld"><label>Nome da peça</label><input id="np-nome" placeholder="Ex: Stud Frame"></div>
+            <div class="fld"><label>ID da peça *</label><input id="np-id" list="codigos-padrao" placeholder="Ex: EST-PISO-P ou E-A11-CI03"></div>
+            <div class="fld"><label>Nome da peça</label><input id="np-nome" placeholder="Ex: Estrutura Piso Padrão"></div>
             <div class="fld"><label>Serial (código de barras)</label><input id="np-serial" placeholder="Ex: 789012345"></div>
             <div class="fld"><label>Setor que fabrica</label>
               <select id="np-setorfab"><option value="">—</option></select></div>
@@ -138,8 +148,8 @@ tr:hover td{background:#F7F9FB;}
   <div class="card">
     <h2 id="form-peca-titulo">➕ NOVA PEÇA</h2>
     <div class="row">
-      <div class="fld"><label>ID da peça *</label><input id="pc-id" placeholder="Ex: P001 ou GRC-A008"></div>
-      <div class="fld"><label>Nome da peça</label><input id="pc-nome" placeholder="Ex: Tubo 40x40"></div>
+      <div class="fld"><label>ID da peça *</label><input id="pc-id" list="codigos-padrao" placeholder="Ex: EST-PISO-P ou E-A11-CI03"></div>
+      <div class="fld"><label>Nome da peça</label><input id="pc-nome" placeholder="Ex: Estrutura Piso Padrão"></div>
       <div class="fld"><label>Serial (código de barras)</label><input id="pc-serial" placeholder="Ex: 789012345"></div>
       <div class="fld"><label>Setor que fabrica</label>
         <select id="pc-setorfab"><option value="">—</option></select>
@@ -173,8 +183,8 @@ tr:hover td{background:#F7F9FB;}
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
       <a href="Modelo_Importacao_Visia.xlsx" download class="btn" style="background:#1D9E75;text-decoration:none;display:inline-flex;align-items:center;">⬇ Baixar modelo Excel</a>
-      <a href="Modelo_Importacao_Visia.csv" download class="btn sec" style="text-decoration:none;display:inline-flex;align-items:center;">⬇ Baixar modelo CSV</a>
     </div>
+    <p style="font-size:11px;color:#9CA3AF;margin:-10px 0 16px;">Ao importar, o sistema avisa se algum setor não estiver cadastrado na configuração.</p>
 
     <div style="border:2px dashed #C4CDD8;border-radius:10px;padding:24px;text-align:center;background:#fff;">
       <input type="file" id="imp-file" accept=".csv,.xlsx,.xls" onchange="lerArquivoImport()" style="display:none;">
@@ -201,6 +211,9 @@ tr:hover td{background:#F7F9FB;}
 
 <script>
 const URL='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
+
+// Códigos padrão: ID -> nome (ao escolher o ID, o nome preenche e trava automaticamente)
+// quando o ID digitado é um código padrão, preenche e trava o nome; senão libera
 
 /* ── Comunicação com Apps Script (JSONP + fallback) ── */
 let _cb=0;
@@ -355,8 +368,11 @@ function processarLinhasImport(linhas){
       idProd,
       nome_produto:campo(l,['nome_produto','nomeproduto']),
       data_programada:normalizarData(campo(l,['data_programada','dataprogramada'])),
+      data_saida:normalizarData(campo(l,['data_saida','datasaida','data saida','saida'])),
       id_peca_base:idPeca,
-      nome_peca:campo(l,['nome_peca','nomepeca']),
+      // nome: usa o da planilha; se vazio e o id for código padrão, preenche pelo mapa
+      // código padrão -> nome padrão TRAVADO (ignora o digitado); outros códigos -> usa o nome digitado
+      nome_peca:(nomePorId(idPeca) || campo(l,['nome_peca','nomepeca'])),
       serial:campo(l,['serial','codigo_barras','serial (codigo de barras)']),
       setor_fabrica:normSetor(campo(l,['setor_fabrica','setorfabrica','setor que fabrica'])),
       data_fabricacao:normalizarData(campo(l,['data_fabricacao','datafabricacao','data prev. fabricacao'])),
@@ -376,7 +392,7 @@ function processarLinhasImport(linhas){
     const d=linhasDados[i];
     if(!d) continue;
     if(!mapa[d.idProd]){
-      mapa[d.idProd]={ id_produto:d.idProd, nome_produto:d.nome_produto, data_programada:d.data_programada, pecas:[] };
+      mapa[d.idProd]={ id_produto:d.idProd, nome_produto:d.nome_produto, data_programada:d.data_programada, data_saida:d.data_saida, pecas:[] };
       ordem.push(d.idProd);
     }
     // define o vínculo vira_*
@@ -413,7 +429,21 @@ function mostrarPreviewImport(){
   if(!IMPORT_DADOS||!IMPORT_DADOS.length){ msg('err','Nenhum produto válido encontrado.'); return; }
   const totalPecas=IMPORT_DADOS.reduce((s,p)=>s+p.pecas.length,0);
   document.getElementById('imp-nome').textContent=document.getElementById('imp-file').files[0].name+' — lido com sucesso';
-  document.getElementById('imp-resumo').innerHTML=`<strong>${IMPORT_DADOS.length}</strong> produto(s) e <strong>${totalPecas}</strong> peça(s) encontrados.`;
+  // valida os setores: avisa se algum não estiver cadastrado na configuração
+  const validosUp=SETORES_VALIDOS.map(s=>s.trim().toUpperCase());
+  const setoresInvalidos=new Set();
+  IMPORT_DADOS.forEach(p=>p.pecas.forEach(pc=>{
+    const s=(pc.setor_fabrica||'').trim();
+    if(s && !validosUp.includes(s.toUpperCase())) setoresInvalidos.add(s);
+  }));
+  let avisoSetor='';
+  if(setoresInvalidos.size){
+    avisoSetor=`<div style="background:#FDEBEC;color:#C0392B;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12px;">
+      ⚠️ Setor(es) não cadastrado(s) na configuração: <strong>${[...setoresInvalidos].join(', ')}</strong>.<br>
+      Cadastre em "Setores e Fluxos" antes de importar, ou corrija a planilha. Você pode importar assim mesmo, mas esses setores não terão filtro/fluxo configurado.
+    </div>`;
+  }
+  document.getElementById('imp-resumo').innerHTML=`<strong>${IMPORT_DADOS.length}</strong> produto(s) e <strong>${totalPecas}</strong> peça(s) encontrados.`+avisoSetor;
   // tabela de prévia
   const thead=document.querySelector('#imp-tbl thead');
   const tbody=document.querySelector('#imp-tbl tbody');
@@ -530,6 +560,7 @@ function adicionarPecaCascata(){
   toggleViraPeca();
   document.getElementById('np-id').focus();
   renderCascata();
+  autoNome('np-id','np-nome'); // reaplica trava do nome
 }
 function removerPecaCascata(i){ pecasCascata.splice(i,1); renderCascata(); }
 function renderCascata(){
@@ -692,6 +723,7 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira,viranome,v
   document.getElementById('form-peca-titulo').textContent='✏️ EDITANDO '+id+' (linha '+_linhaEditando+')';
   document.getElementById('pc-cancel').classList.remove('hidden');
   window.scrollTo({top:0,behavior:'smooth'});
+  autoNome('pc-id','pc-nome'); // reaplica trava do nome
 }
 function limparFormPeca(){
   _linhaEditando=0;
@@ -702,6 +734,7 @@ function limparFormPeca(){
   document.getElementById('pc-id').removeAttribute('readonly');
   document.getElementById('form-peca-titulo').textContent='➕ NOVA PEÇA';
   document.getElementById('pc-cancel').classList.add('hidden');
+  autoNome('pc-id','pc-nome'); // reaplica trava do nome
 }
 async function excluirPeca(linha,id){
   if(!confirm('Excluir a peça '+id+' (linha '+linha+')? Esta ação não pode ser desfeita.')) return;
@@ -713,6 +746,39 @@ async function excluirPeca(linha,id){
 
 /* ── INIT ── */
 // mostra o campo "Vira a peça" só quando o setor é Célula de Estruturas
+// Mapeamento fixo de código base -> nome da peça (preenche o nome automaticamente)
+const NOMES_PADRAO={
+  'EST-PISO-P':'Estrutura Piso Padrão',
+  'PISO-CAD-P':'Piso CAD Padrão',
+  'EST-PISO-E':'Estrutura Piso Específico',
+  'PISO-CAD-E':'Piso CAD Específico',
+  'EST-TETO-E':'Estrutura Teto Específico',
+  'TETO-GRC-E':'Teto GRC Específico',
+  'EST-TETO-P':'Estrutura Teto Padrão',
+  'TETO-GRC-P':'Teto GRC Padrão'
+};
+// extrai o código base do ID (remove o sufixo do produto se houver) e busca o nome
+function nomePorId(id){
+  id=String(id||'').trim().toUpperCase();
+  if(!id) return null;
+  // tenta o ID inteiro
+  if(NOMES_PADRAO[id]) return NOMES_PADRAO[id];
+  // tenta o código base (antes do -CI-...)
+  const m=id.match(/^(.*?)-CI-\d+-\d+-P\d+$/i);
+  if(m && NOMES_PADRAO[m[1]]) return NOMES_PADRAO[m[1]];
+  // tenta achar um código base que seja prefixo
+  for(const base in NOMES_PADRAO){ if(id===base) return NOMES_PADRAO[base]; }
+  return null;
+}
+// ao mudar o ID, preenche o nome automaticamente e trava se for código padrão
+function autoNome(idCampo, nomeCampo){
+  const idEl=document.getElementById(idCampo), nomeEl=document.getElementById(nomeCampo);
+  if(!idEl||!nomeEl) return;
+  const nome=nomePorId(idEl.value);
+  if(nome){ nomeEl.value=nome; nomeEl.setAttribute('readonly','true'); nomeEl.style.background='#F0F6FC'; }
+  else{ nomeEl.removeAttribute('readonly'); nomeEl.style.background=''; }
+}
+
 function toggleViraPeca(){
   const ehCelula=v=>String(v||'').trim().toLowerCase()==='célula de estruturas';
   const np=document.getElementById('np-setorfab'), pc=document.getElementById('pc-setorfab');
@@ -726,8 +792,12 @@ function toggleViraPeca(){
 }
 document.getElementById('np-setorfab').addEventListener('change',toggleViraPeca);
 document.getElementById('pc-setorfab').addEventListener('change',toggleViraPeca);
+// auto-preenchimento do nome ao digitar/sair do campo ID
+document.getElementById('np-id').addEventListener('input',()=>autoNome('np-id','np-nome'));
+document.getElementById('pc-id').addEventListener('input',()=>autoNome('pc-id','pc-nome'));
 
 // Carrega os setores da configuração e preenche os selects (com fallback para os padrão)
+let SETORES_VALIDOS=['CAD','GRC','Célula de Estruturas']; // atualizado ao carregar
 async function carregarSetoresConfig(){
   let setores=['CAD','GRC','Célula de Estruturas']; // fallback
   try{
@@ -736,6 +806,7 @@ async function carregarSetoresConfig(){
       setores=r.setores.filter(s=>s.ativo!==false).map(s=>s.setor);
     }
   }catch(_){}
+  SETORES_VALIDOS=setores;
   ['np-setorfab','pc-setorfab'].forEach(id=>{
     const sel=document.getElementById(id);
     if(!sel) return;

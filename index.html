@@ -117,6 +117,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="nome">Gestão de Fluxo e Produção</div>
         <div class="desc">Cards por módulo com peças de CAD e GRC. Solicitar transporte noturno para a montagem.</div>
       </a>
+      <a class="card" data-mod="gantt" href="gantt.html">
+        <div class="top"><div class="ico" style="background:#E6EEF8;">📅</div><span class="arrow">→</span></div>
+        <div class="nome">Planejamento de linha</div>
+        <div class="desc">Gantt com entrada e saída dos módulos na linha e a data de fabricação de cada peça.</div>
+      </a>
     </div>
   </div>
 
@@ -156,14 +161,14 @@ window.addEventListener('appinstalled',()=>{ const b=document.getElementById('bt
    Produção é livre (sempre visível). Estoque/Admin exigem login.
    O perfil vem da aba Usuarios (coluna D): lista de módulos ou "todos". */
 const URL_LOGIN='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
-const MOD_LIVRES=['abastecimento']; // logística: sempre visível
+const MOD_LIVRES=['abastecimento','gantt']; // logística: sempre visível
 const MOD_RESTRITOS=['conferencia','leitor','cadastro']; // exigem login
 
 // Cada módulo pertence a uma ÁREA. O perfil do usuário libera por área.
 // Áreas: estoque, logistica, administracao (produção foi removida)
 const AREA_DO_MOD={
   conferencia:'estoque', leitor:'estoque',
-  abastecimento:'logistica',
+  abastecimento:'logistica', gantt:'logistica',
   cadastro:'administracao', setores:'administracao'
 };
 
@@ -190,13 +195,13 @@ async function apiI(params){
 // visualizador ⊂ apontador ⊂ administrador ⊂ master
 const PERMISSOES={
   // Visualizador: só Logística (visualiza)
-  visualizador:  ['abastecimento'],
+  visualizador:  ['abastecimento','gantt'],
   // Apontador: Logística + Estoque (conferência e leitor)
-  apontador:     ['abastecimento','conferencia','leitor'],
+  apontador:     ['abastecimento','gantt','conferencia','leitor'],
   // Administrador: tudo do Apontador + Cadastro + Setores
-  administrador: ['abastecimento','conferencia','leitor','cadastro','setores'],
+  administrador: ['abastecimento','gantt','conferencia','leitor','cadastro','setores'],
   // Master: tudo
-  master:        ['abastecimento','conferencia','leitor','cadastro','setores']
+  master:        ['abastecimento','gantt','conferencia','leitor','cadastro','setores']
 };
 function perfilPermite(mod){
   const perfil=(sessionStorage.getItem('visia_perfil')||'').toLowerCase().trim();
