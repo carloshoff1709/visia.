@@ -22,7 +22,7 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
 .wrap{padding:14px 18px 80px;}
 /* GRID AUTO-AJUSTAVEL: quanto mais cards, mais colunas (cards menores) */
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(var(--cardmin,300px),1fr));}
+.grid{display:grid;gap:12px;align-items:start;grid-template-columns:repeat(auto-fill,minmax(var(--cardmin,300px),1fr));}
 .card{background:#fff;border:1px solid #E3E8EF;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
 .card.concluido{opacity:.6;}
 .card-head{background:#F5F7FA;padding:10px 13px;border-bottom:1px solid #E3E8EF;}
