@@ -57,6 +57,10 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .solicitado.a_produzir{animation:piscaVermelho 1s infinite;}
 @keyframes piscaAmarelo{0%,100%{background:#fff;}50%{background:#FFF3C4;}}
 @keyframes piscaVermelho{0%,100%{background:#fff;}50%{background:#FDDADA;}}
+.card-head.pisca-amarelo{animation:headAmarelo 1s infinite;}
+.card-head.pisca-vermelho{animation:headVermelho 1s infinite;}
+@keyframes headAmarelo{0%,100%{background:#F5F7FA;}50%{background:#FFE58A;}}
+@keyframes headVermelho{0%,100%{background:#F5F7FA;}50%{background:#F7B4B4;}}
 @keyframes piscaBtn{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.55;transform:scale(1.04);}}
 .barra-acao{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #E3E8EF;padding:12px 20px;display:none;align-items:center;gap:12px;box-shadow:0 -4px 16px rgba(0,0,0,.06);z-index:30;}
 .barra-acao.show{display:flex;}
@@ -320,8 +324,15 @@ function render(){
       : '';
     const headClick = linhasTodas.length>0 ? `onclick='event.stopPropagation();toggleCard(${JSON.stringify(linhasTodas)})' style="cursor:pointer;"` : '';
     const expandido = EXPANDIDOS.has(m.id_produto);
+    // pisca o cabeçalho conforme as peças solicitadas para transporte (ainda não entregues):
+    // vermelho = alguma solicitada ainda não fabricada; amarelo = todas as solicitadas já produzidas
+    const itensCard=[];
+    pecasFiltradas.forEach(pc=>{ itensCard.push(pc); if(pc.estrutura) itensCard.push(pc.estrutura); });
+    const solicPend=itensCard.filter(it=>it.solicitado && it.estado!=='entregue');
+    const piscaCls = solicPend.length===0 ? ''
+      : (solicPend.some(it=>it.estado==='a_produzir') ? ' pisca-vermelho' : ' pisca-amarelo');
     return `<div class="card${concluido}">
-      <div class="card-head" onclick="toggleExpandir('${m.id_produto.replace(/'/g,"\\'")}')" style="cursor:pointer;">
+      <div class="card-head${piscaCls}" onclick="toggleExpandir('${m.id_produto.replace(/'/g,"\\'")}')" style="cursor:pointer;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="exp-ico">${expandido?'▼':'▶'}</span>
           <span ${headClick}>${chk}</span>
