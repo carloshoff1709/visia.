@@ -105,9 +105,10 @@ tr:hover td{background:#F7F9FB;}
   <div class="card">
     <h2 id="form-prod-titulo">➕ NOVO PRODUTO</h2>
     <div class="row">
-      <div class="fld"><label>ID do produto *</label><input id="p-id" placeholder="Ex: PR07 ou RR-2-01"></div>
+      <div class="fld"><label>ID do produto *</label><input id="p-id" placeholder="Ex: PR07 ou RR-2-01" oninput="renderCascata()"></div>
       <div class="fld"><label>Nome do produto</label><input id="p-nome" placeholder="Ex: Monobloco"></div>
-      <div class="fld"><label>Data programada</label><input type="date" id="p-data"></div>
+      <div class="fld"><label>Data de entrada na linha</label><input type="date" id="p-data"></div>
+      <div class="fld"><label>Data de saída da linha</label><input type="date" id="p-saida"></div>
     </div>
     <div class="row">
       <div class="fld" style="flex:1 1 100%;">
@@ -120,13 +121,11 @@ tr:hover td{background:#F7F9FB;}
             <div class="fld"><label>Setor que fabrica</label>
               <select id="np-setorfab"><option value="">—</option></select></div>
             <div class="fld"><label>Data prev. fabricação</label><input id="np-datafab" type="date"></div>
-            <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira → ID da peça</label><input id="np-vira" placeholder="Ex: Piso CAD"></div>
-            <div class="fld" id="fld-np-viranome" style="display:none;"><label>Vira → Nome</label><input id="np-viranome" placeholder="Ex: Piso CAD 6x3m"></div>
-            <div class="fld" id="fld-np-viraserial" style="display:none;"><label>Vira → Serial</label><input id="np-viraserial" placeholder="Ex: 789012345"></div>
-            <div class="fld" id="fld-np-viradata" style="display:none;"><label>Vira → Data fab.</label><input id="np-viradata" type="date"></div>
+            <div class="fld" id="fld-np-vira" style="display:none;"><label>Vira a peça?</label>
+              <select id="np-viraflag"><option value="NAO">NÃO — vai direto para a montagem</option><option value="SIM">SIM — vira a próxima peça adicionada</option></select></div>
           </div>
           <button type="button" class="btn" onclick="adicionarPecaCascata()" style="background:#185FA5;">+ Adicionar peça</button>
-          <div class="hint" style="margin-top:6px;">Cada peça adicionada é cadastrada na aba Peças ao salvar o produto. Repita o ID para exigir mais de uma unidade.</div>
+          <div class="hint" style="margin-top:6px;">Mesmas regras da importação: o sistema acrescenta o produto ao ID (ex: EST-PISO-P → EST-PISO-P-CI-2-08-P1), o nome dos códigos padrão é travado e a estrutura com "SIM" vira a peça logo abaixo dela na lista. Use ▲▼ para ajustar a ordem.</div>
         </div>
         <div id="pecas-cascata" style="margin-top:10px;"></div>
       </div>
@@ -138,7 +137,7 @@ tr:hover td{background:#F7F9FB;}
   </div>
   <h2 style="font-size:13px;color:#374151;margin-bottom:10px;">PRODUTOS CADASTRADOS</h2>
   <div style="max-height:50vh;overflow-y:auto;">
-    <table id="tbl-prod"><thead><tr><th>ID</th><th>Nome</th><th>Peças</th><th>Data prog.</th><th>Status</th><th>Ações</th></tr></thead><tbody></tbody></table>
+    <table id="tbl-prod"><thead><tr><th>ID</th><th>Nome</th><th>Peças</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Ações</th></tr></thead><tbody></tbody></table>
     <div class="empty hidden" id="empty-prod">Nenhum produto cadastrado ainda.</div>
   </div>
 </div>
@@ -148,6 +147,7 @@ tr:hover td{background:#F7F9FB;}
   <div class="card">
     <h2 id="form-peca-titulo">➕ NOVA PEÇA</h2>
     <div class="row">
+      <div class="fld" id="fld-pc-produto"><label>Produto (para peça nova)</label><select id="pc-produto"><option value="">— nenhum —</option></select></div>
       <div class="fld"><label>ID da peça *</label><input id="pc-id" list="codigos-padrao" placeholder="Ex: EST-PISO-P ou E-A11-CI03"></div>
       <div class="fld"><label>Nome da peça</label><input id="pc-nome" placeholder="Ex: Estrutura Piso Padrão"></div>
       <div class="fld"><label>Serial (código de barras)</label><input id="pc-serial" placeholder="Ex: 789012345"></div>
@@ -155,10 +155,11 @@ tr:hover td{background:#F7F9FB;}
         <select id="pc-setorfab"><option value="">—</option></select>
       </div>
       <div class="fld"><label>Data prev. fabricação</label><input id="pc-datafab" type="date"></div>
-      <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira → ID da peça</label><input id="pc-vira" placeholder="Ex: Piso CAD"></div>
-      <div class="fld" id="fld-pc-viranome" style="display:none;"><label>Vira → Nome da peça</label><input id="pc-viranome" placeholder="Ex: Piso CAD 6x3m"></div>
-      <div class="fld" id="fld-pc-viraserial" style="display:none;"><label>Vira → Serial</label><input id="pc-viraserial" placeholder="Ex: 789012345"></div>
-      <div class="fld" id="fld-pc-viradata" style="display:none;"><label>Vira → Data fabricação</label><input id="pc-viradata" type="date"></div>
+      <div class="fld" id="fld-pc-vira" style="display:none;"><label>Vira a peça?</label>
+        <select id="pc-viraflag" onchange="toggleViraPeca()"><option value="NAO">NÃO — vai direto para a montagem</option><option value="SIM">SIM — vira uma peça cadastrada</option></select></div>
+      <div class="fld" id="fld-pc-viraem" style="display:none;"><label>Vira em (ID da peça)</label>
+        <input id="pc-viraem" list="lista-pecas-ids" placeholder="Escolha a peça CAD/GRC" oninput="mostrarInfoVira()">
+        <div class="hint" id="pc-virainfo" style="margin-top:4px;"></div></div>
       <div class="fld"><label>Status</label>
         <select id="pc-status"><option value="Faltando">Faltando</option><option value="Disponivel">Disponivel</option></select>
       </div>
@@ -167,7 +168,8 @@ tr:hover td{background:#F7F9FB;}
       <button class="btn" onclick="salvarPeca()">Salvar peça</button>
       <button class="btn sec hidden" id="pc-cancel" onclick="limparFormPeca()">Cancelar edição</button>
     </div>
-    <div class="hint" style="margin-top:8px;">Para cadastrar várias unidades da mesma peça física, crie IDs iguais em linhas diferentes (ex: duas peças GRC-A057) — use IDs iguais só se controlar por quantidade.</div>
+    <datalist id="lista-pecas-ids"></datalist>
+    <div class="hint" style="margin-top:8px;">Peça nova com produto escolhido: o ID ganha o sufixo do produto e a peça entra na lista dele, como na importação. Sem produto, a peça fica avulsa e não aparece em nenhum card. Na estrutura com "SIM", nome, serial e data da peça final vêm automaticamente da peça escolhida.</div>
   </div>
   <h2 style="font-size:13px;color:#374151;margin-bottom:10px;">PEÇAS CADASTRADAS</h2>
   <div style="max-height:50vh;overflow-y:auto;">
@@ -343,17 +345,7 @@ function normalizarData(v){
 
 function processarLinhasImport(linhas){
   if(!linhas.length){ msg('err','Arquivo vazio ou sem dados.'); return; }
-  // monta o sufixo único do produto (ex: "CI-2-08 - P1" -> "CI-2-08-P1")
-  const sufixoProd=idp=>String(idp||'').replace(/\s*-\s*/g,'-').replace(/\s+/g,'').toUpperCase();
-  // anexa o produto ao id da peça, se ainda não estiver anexado
-  const idUnico=(base,idp)=>{
-    base=String(base||'').trim();
-    if(!base) return base;
-    const suf='-'+sufixoProd(idp);
-    // se já termina com o sufixo do produto, não duplica
-    if(base.toUpperCase().endsWith(suf.toUpperCase())) return base;
-    return base+suf;
-  };
+  // sufixoProd / idUnico: utilitários comuns, definidos junto de isoParaBR
   // helper para ler uma coluna de uma linha (aceita variações de nome)
   const campo=(l,nomes)=>{ for(const n of nomes){ for(const k in l){ if(k.toLowerCase().trim()===n) return String(l[k]).trim(); } } return ''; };
   const ehSim=v=>{ const t=String(v||'').trim().toLowerCase(); return t==='sim'||t==='s'||t==='x'||t==='true'||t==='1'; };
@@ -502,6 +494,23 @@ function cancelarImport(){
 
 
 /* ══════════ PRODUTOS ══════════ */
+// ── Regras comuns à importação e ao cadastro direto ──
+// sufixo único do produto (ex: "CI-2-08 - P1" -> "CI-2-08-P1")
+function sufixoProd(idp){ return String(idp||'').replace(/\s*-\s*/g,'-').replace(/\s+/g,'').toUpperCase(); }
+// anexa o produto ao ID da peça, sem duplicar se já estiver anexado
+function idUnico(base,idp){
+  base=String(base||'').trim();
+  if(!base||!idp) return base;
+  const suf='-'+sufixoProd(idp);
+  return base.toUpperCase().endsWith(suf.toUpperCase()) ? base : base+suf;
+}
+function ehSimVira(v){ const t=String(v||'').trim().toLowerCase(); return t==='sim'||t==='s'||t==='x'||t==='true'||t==='1'; }
+function ehCelulaEstr(v){ return String(v||'').trim().toLowerCase()==='célula de estruturas'; }
+// POST (sem limite de URL); cai para GET se falhar
+async function apiPost(params){
+  try{ const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:params}); if(r.ok) return JSON.parse(await r.text()); }catch(_){}
+  return await api(params);
+}
 function isoParaBR(iso){ if(!iso) return ''; const [a,m,d]=iso.split('-'); return `${d}/${m}/${a}`; }
 function brParaIso(br){ if(!br||br.indexOf('/')<0) return ''; const [d,m,a]=br.split('/'); return `${a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
 
@@ -512,6 +521,7 @@ async function carregarProdutos(){
   const tb=document.querySelector('#tbl-prod tbody');
   const vazio=document.getElementById('empty-prod');
   if(!Array.isArray(lista)){ setStatus('Erro ao carregar'); return; }
+  LISTA_PRODUTOS=lista; preencherSelectProdutos();
   if(lista.length===0){ tb.innerHTML=''; vazio.classList.remove('hidden'); setStatus('0 produtos'); return; }
   vazio.classList.add('hidden');
   tb.innerHTML=lista.map(p=>{
@@ -523,9 +533,10 @@ async function carregarProdutos(){
       <td>${p.nome_produto||''}</td>
       <td style="max-width:220px;font-size:11px;color:#6B7280;">${pecas}</td>
       <td>${p.data_programada||'—'}</td>
+      <td>${p.data_saida||'—'}</td>
       <td><span class="tag ${verde?'ok':'no'}">${verde?'🟢 Verde':'🔴 Vermelho'}</span></td>
       <td><div class="acts">
-        <button class="btn sec sm" onclick="editarProduto('${p.id_produto}','${nome}','${(p.pecas||[]).join(',')}','${p.data_programada||''}')">Editar</button>
+        <button class="btn sec sm" onclick="editarProduto('${p.id_produto}','${nome}','${(p.pecas||[]).join(',')}','${p.data_programada||''}','${p.data_saida||''}')">Editar</button>
         <button class="btn del sm" onclick="excluirProduto('${p.id_produto}',${(p.pecas||[]).length})">Excluir</button>
       </div></td>
     </tr>`;
@@ -541,45 +552,82 @@ function adicionarPecaCascata(){
   if(!id){ msg('err','Informe o ID da peça.'); return; }
   let nome=document.getElementById('np-nome').value.trim();
   let serial=document.getElementById('np-serial').value.trim();
-  let setorfab=document.getElementById('np-setorfab').value;
-  let datafab=isoParaBR(document.getElementById('np-datafab').value);
-  // campos vira peça (só preenchidos quando setor = Célula de Estruturas)
-  let vira=document.getElementById('np-vira').value.trim();
-  let viranome=document.getElementById('np-viranome').value.trim();
-  let viraserial=document.getElementById('np-viraserial').value.trim();
-  let viradata=isoParaBR(document.getElementById('np-viradata').value);
+  const setorfab=document.getElementById('np-setorfab').value;
+  const datafab=isoParaBR(document.getElementById('np-datafab').value);
+  const vira_flag=ehCelulaEstr(setorfab)?document.getElementById('np-viraflag').value:'';
+  // código padrão: nome travado (mesma regra da importação)
+  const padrao=nomePorId(id); if(padrao) nome=padrao;
   // se não digitou nome/serial mas o ID já existe, herda os dados cadastrados
   const info=MAPA_PECAS[id];
-  if(info){
-    if(!nome) nome=info.nome||'';
-    if(!serial) serial=info.serial||'';
-  }
-  pecasCascata.push({id,nome,serial,setor_fabrica:setorfab,data_fabricacao:datafab,vira_peca:vira,vira_nome:viranome,vira_serial:viraserial,vira_data:viradata});
-  ['np-id','np-nome','np-serial','np-datafab','np-vira','np-viranome','np-viraserial','np-viradata'].forEach(i=>document.getElementById(i).value='');
+  if(info){ if(!nome) nome=info.nome||''; if(!serial) serial=info.serial||''; }
+  pecasCascata.push({id,nome,serial,setor_fabrica:setorfab,data_fabricacao:datafab,vira_flag,existente:false});
+  ['np-id','np-nome','np-serial','np-datafab'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('np-setorfab').value='';
+  document.getElementById('np-viraflag').value='NAO';
   toggleViraPeca();
   document.getElementById('np-id').focus();
   renderCascata();
   autoNome('np-id','np-nome'); // reaplica trava do nome
 }
 function removerPecaCascata(i){ pecasCascata.splice(i,1); renderCascata(); }
+function moverPecaCascata(i,dir){
+  const j=i+dir; if(j<0||j>=pecasCascata.length) return;
+  [pecasCascata[i],pecasCascata[j]]=[pecasCascata[j],pecasCascata[i]];
+  renderCascata();
+}
+
 function renderCascata(){
   const c=document.getElementById('pecas-cascata');
   if(pecasCascata.length===0){ c.innerHTML='<div class="hint">Nenhuma peça adicionada ainda.</div>'; return; }
+  const idProd=document.getElementById('p-id').value.trim();
   c.innerHTML=pecasCascata.map((p,i)=>{
-    const nome = p.nome || '';
-    const serial = p.serial || '';
+    const idFinal=p.existente?p.id:idUnico(p.id,idProd);
+    const serial = p.serial ? ('serial '+p.serial) : 'sem serial';
     const setor = p.setor_fabrica ? (' · '+p.setor_fabrica) : '';
     const dfab = p.data_fabricacao ? (' · fab '+p.data_fabricacao) : '';
-    const vira = p.vira_peca ? (' · ↳ vira '+p.vira_peca) : '';
-    const detalhe = [nome||'sem nome', serial?('serial '+serial):'sem serial'].join(' · ')+setor+dfab+vira;
+    let vinc='';
+    if(ehSimVira(p.vira_flag)){
+      const prox=pecasCascata[i+1];
+      vinc = prox ? ` · <span style="color:#6D4AAE;font-weight:600;">↳ vira ${prox.nome||prox.id}</span>`
+                  : ` · <span style="color:#C0392B;font-weight:600;">⚠ "SIM" sem peça abaixo</span>`;
+    } else if(p.vira_peca){ vinc=' · ↳ vira '+p.vira_peca; }
+    else if(ehCelulaEstr(p.setor_fabrica)){ vinc=' · direto p/ montagem'; }
+    const tagNova = p.existente ? '' : '<span class="tag ok" style="font-size:10px;">nova</span>';
     return `
-    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E1E6EC;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
-      <span style="font-size:13px;font-weight:700;">${p.id}</span>
-      <span style="font-size:12px;color:#6B7280;flex:1;">${detalhe}</span>
+    <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #E1E6EC;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <button class="btn sec sm" style="padding:0 6px;line-height:16px;" onclick="moverPecaCascata(${i},-1)" ${i===0?'disabled':''} aria-label="Subir">▲</button>
+        <button class="btn sec sm" style="padding:0 6px;line-height:16px;" onclick="moverPecaCascata(${i},1)" ${i===pecasCascata.length-1?'disabled':''} aria-label="Descer">▼</button>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;">${p.nome||'sem nome'} <span style="font-weight:500;color:#6B7280;font-size:12px;">${idFinal}</span> ${tagNova}</div>
+        <div style="font-size:12px;color:#6B7280;">${serial}${setor}${dfab}${vinc}</div>
+      </div>
       <button class="btn del sm" onclick="removerPecaCascata(${i})">Remover</button>
     </div>`;
   }).join('');
+}
+
+// Monta as unidades físicas exatamente como a importação: ID único, nome padrão e vínculo "vira" pela linha de baixo
+
+function montarUnidadesCascata(idProd){
+  const erros=[];
+  const unidades=pecasCascata.map((p,i)=>{
+    if(p.existente) return null;
+    let vira_peca='', vira_nome='', vira_serial='', vira_data='';
+    if(ehSimVira(p.vira_flag)){
+      const prox=pecasCascata[i+1];
+      if(!prox){ erros.push((p.nome||p.id)+': marcada como "vira SIM", mas não há peça abaixo dela.'); }
+      else{
+        vira_peca=prox.existente?prox.id:idUnico(prox.id,idProd);
+        vira_nome=prox.nome||''; vira_serial=prox.serial||''; vira_data=prox.data_fabricacao||'';
+      }
+    }
+    return { id_peca:idUnico(p.id,idProd), nome_peca:nomePorId(p.id)||p.nome||'', serial:p.serial||'',
+             setor_fabrica:p.setor_fabrica||'', data_fabricacao:p.data_fabricacao||'',
+             vira_peca, vira_nome, vira_serial, vira_data };
+  }).filter(x=>x);
+  return {unidades, erros};
 }
 
 async function salvarProduto(){
@@ -588,20 +636,27 @@ async function salvarProduto(){
   if(pecasCascata.length===0){ msg('err','Adicione ao menos uma peça ao produto.'); return; }
   const nome=document.getElementById('p-nome').value.trim();
   const data=isoParaBR(document.getElementById('p-data').value);
+  const saida=isoParaBR(document.getElementById('p-saida').value);
+  const ei=document.getElementById('p-data').value, es=document.getElementById('p-saida').value;
+  if(ei && es && es<ei){ msg('err','A data de saída é anterior à data de entrada.'); return; }
 
+  const {unidades, erros}=montarUnidadesCascata(id);
+  if(erros.length){ msg('err',erros.join(' ')); return; }
+  // mesmo aviso da importação para setores não cadastrados
+  const validos=SETORES_VALIDOS.map(x=>x.toUpperCase());
+  const invalidos=[...new Set(unidades.map(u=>u.setor_fabrica).filter(x=>x && !validos.includes(x.toUpperCase())))];
+  if(invalidos.length && !confirm('Setor(es) não cadastrado(s) em "Setores e Fluxos": '+invalidos.join(', ')+'.\nSalvar mesmo assim?')) return;
+
+  // lista do produto: IDs finais, na ordem (repetir = mais de uma unidade)
+  const pecas=pecasCascata.map(p=>p.existente?p.id:idUnico(p.id,id)).join(',');
   msg('load','Salvando produto…');
-  // monta mapa {id: {nome, serial}} das peças da cascata
-  const infoPecas={};
-  pecasCascata.forEach(pc=>{ infoPecas[pc.id]={nome:(pc.nome||'').trim(), serial:(pc.serial||'').trim(), setor_fabrica:(pc.setor_fabrica||'').trim(), data_fabricacao:(pc.data_fabricacao||'').trim(), vira_peca:(pc.vira_peca||'').trim(), vira_nome:(pc.vira_nome||'').trim(), vira_serial:(pc.vira_serial||'').trim(), vira_data:(pc.vira_data||'').trim()}; });
-  // lista de peças (repete o id conforme adicionado = quantidade de unidades)
-  const pecas=pecasCascata.map(p=>p.id).join(',');
-  const r=await api('action=salvar_produto&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_produto='+encodeURIComponent(id)
+  const r=await apiPost('action=salvar_produto&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_produto='+encodeURIComponent(id)
     +'&nome_produto='+encodeURIComponent(nome)+'&pecas='+encodeURIComponent(pecas)
-    +'&data_programada='+encodeURIComponent(data)
-    +'&info_pecas='+encodeURIComponent(JSON.stringify(infoPecas)));
+    +'&data_programada='+encodeURIComponent(data)+'&data_saida='+encodeURIComponent(saida)
+    +'&unidades='+encodeURIComponent(JSON.stringify(unidades)));
   if(r&&r.ok){
-    if(r.acao==='criado'){ msg('ok','Produto criado com '+pecasCascata.length+' peça(s)!'); }
-    else{ msg('ok','Produto atualizado!'); }
+    if(r.acao==='criado'){ msg('ok','Produto criado com '+unidades.length+' peça(s)!'); }
+    else{ msg('ok','Produto atualizado'+(unidades.length?(' — '+unidades.length+' peça(s) nova(s) criada(s)'):'')+'!'); }
     limparFormProduto(); carregarProdutos();
   }
   else{ msg('err','Falha ao salvar produto.'); }
@@ -611,20 +666,23 @@ async function carregarMapaPecas(){
   const lista=await api('action=listar_pecas');
   if(Array.isArray(lista)){
     MAPA_PECAS={};
-    lista.forEach(p=>{ MAPA_PECAS[p.id_peca]={nome:p.nome_peca||'', serial:p.serial||''}; });
+    lista.forEach(p=>{ MAPA_PECAS[p.id_peca]={nome:p.nome_peca||'', serial:p.serial||'', setor_fabrica:p.setor_fabrica||'', data_fabricacao:p.data_fabricacao||'', vira_peca:p.vira_peca||''}; });
+    preencherDatalistPecas();
   }
   return MAPA_PECAS;
 }
 
-async function editarProduto(id,nome,pecas,data){
+async function editarProduto(id,nome,pecas,data,saida){
   document.getElementById('p-id').value=id;
   document.getElementById('p-nome').value=nome;
   document.getElementById('p-data').value=brParaIso(data);
-  // garante o mapa de peças atualizado, para trazer nome/serial de cada peça
+  document.getElementById('p-saida').value=brParaIso(saida||'');
+  // garante o mapa de peças atualizado, para trazer os dados de cada peça
   await carregarMapaPecas();
   pecasCascata=(pecas||'').split(',').map(s=>s.trim()).filter(s=>s).map(pid=>{
-    const info=MAPA_PECAS[pid]||{nome:'',serial:''};
-    return {id:pid, nome:info.nome, serial:info.serial};
+    const info=MAPA_PECAS[pid]||{};
+    return {id:pid, nome:info.nome||'', serial:info.serial||'', setor_fabrica:info.setor_fabrica||'',
+            data_fabricacao:info.data_fabricacao||'', vira_peca:info.vira_peca||'', existente:true};
   });
   renderCascata();
   document.getElementById('p-id').setAttribute('readonly','true');
@@ -633,7 +691,7 @@ async function editarProduto(id,nome,pecas,data){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function limparFormProduto(){
-  ['p-id','p-nome','p-data'].forEach(i=>document.getElementById(i).value='');
+  ['p-id','p-nome','p-data','p-saida'].forEach(i=>document.getElementById(i).value='');
   pecasCascata=[]; renderCascata();
   document.getElementById('p-id').removeAttribute('readonly');
   document.getElementById('form-prod-titulo').textContent='➕ NOVO PRODUTO';
@@ -684,26 +742,59 @@ async function carregarPecas(){
 }
 
 let _linhaEditando=0; // linha exata da peça sendo editada (resolve IDs repetidos)
+/* ── Aba Peças ── */
+let LISTA_PRODUTOS=[];
+function preencherSelectProdutos(){
+  const sel=document.getElementById('pc-produto'); if(!sel) return;
+  const atual=sel.value;
+  sel.innerHTML='<option value="">— nenhum —</option>'+LISTA_PRODUTOS.map(p=>`<option value="${p.id_produto}">${p.id_produto}${p.nome_produto?(' - '+p.nome_produto):''}</option>`).join('');
+  if(atual) sel.value=atual;
+}
+function preencherDatalistPecas(){
+  const dl=document.getElementById('lista-pecas-ids'); if(!dl) return;
+  // peças finais (não estruturas) são os destinos possíveis do "vira"
+  dl.innerHTML=Object.keys(MAPA_PECAS).filter(k=>!ehCelulaEstr(MAPA_PECAS[k].setor_fabrica))
+    .map(k=>`<option value="${k}">${MAPA_PECAS[k].nome||''}</option>`).join('');
+}
+function mostrarInfoVira(){
+  const el=document.getElementById('pc-virainfo'); if(!el) return;
+  const k=document.getElementById('pc-viraem').value.trim();
+  const info=MAPA_PECAS[k];
+  el.textContent = !k ? '' : info ? ('→ '+(info.nome||'sem nome')+' · serial '+(info.serial||'—')+' · fab '+(info.data_fabricacao||'—'))
+                                  : '⚠ Peça não encontrada no cadastro.';
+  el.style.color = (k && !info) ? '#C0392B' : '';
+}
+
 async function salvarPeca(){
-  const id=document.getElementById('pc-id').value.trim();
+  let id=document.getElementById('pc-id').value.trim();
   if(!id){ msg('err','Informe o ID da peça.'); return; }
-  const nome=document.getElementById('pc-nome').value.trim();
+  const idProd=_linhaEditando?'':document.getElementById('pc-produto').value;
+  const base=id;
+  if(idProd) id=idUnico(id,idProd);   // mesma regra da importação
+  const nome=nomePorId(base)||document.getElementById('pc-nome').value.trim();
   const serial=document.getElementById('pc-serial').value.trim();
   const status=document.getElementById('pc-status').value;
   const setorfab=document.getElementById('pc-setorfab').value;
   const datafab=isoParaBR(document.getElementById('pc-datafab').value);
-  const vira=document.getElementById('pc-vira').value.trim();
-  const viranome=document.getElementById('pc-viranome').value.trim();
-  const viraserial=document.getElementById('pc-viraserial').value.trim();
-  const viradata=isoParaBR(document.getElementById('pc-viradata').value);
+  // vínculo: SIM -> dados vêm da peça escolhida; NÃO -> limpa o vínculo
+  let vira='', viranome='', viraserial='', viradata='';
+  if(ehCelulaEstr(setorfab) && ehSimVira(document.getElementById('pc-viraflag').value)){
+    vira=document.getElementById('pc-viraem').value.trim();
+    const info=MAPA_PECAS[vira];
+    if(!vira||!info){ msg('err','Escolha uma peça cadastrada em "Vira em".'); return; }
+    viranome=info.nome||''; viraserial=info.serial||''; viradata=info.data_fabricacao||'';
+  }
+  if(setorfab && !SETORES_VALIDOS.map(x=>x.toUpperCase()).includes(setorfab.toUpperCase())
+     && !confirm('O setor "'+setorfab+'" não está cadastrado em "Setores e Fluxos". Salvar mesmo assim?')) return;
   msg('load','Salvando…');
   const r=await api('action=salvar_peca&usuario='+encodeURIComponent(USUARIO_LOGADO)+'&id_peca='+encodeURIComponent(id)
     +'&nome_peca='+encodeURIComponent(nome)+'&serial='+encodeURIComponent(serial)+'&status='+encodeURIComponent(status)
     +'&setor_fabrica='+encodeURIComponent(setorfab)+'&data_fabricacao='+encodeURIComponent(datafab)
     +'&vira_peca='+encodeURIComponent(vira)+'&vira_nome='+encodeURIComponent(viranome)
     +'&vira_serial='+encodeURIComponent(viraserial)+'&vira_data='+encodeURIComponent(viradata)
+    +(idProd?'&id_produto='+encodeURIComponent(idProd):'')
     +(_linhaEditando?'&linha='+_linhaEditando:''));
-  if(r&&r.ok){ msg('ok','Peça '+(r.acao||'salva')+'!'); limparFormPeca(); carregarPecas(); }
+  if(r&&r.ok){ msg('ok','Peça '+(r.acao||'salva')+(idProd&&r.acao==='criado'?(' e incluída em '+idProd):'')+'!'); limparFormPeca(); carregarPecas(); }
   else{ msg('err','Falha ao salvar peça.'); }
 }
 function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira,viranome,viraserial,viradata){
@@ -714,11 +805,11 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira,viranome,v
   document.getElementById('pc-status').value=status||'Faltando';
   document.getElementById('pc-setorfab').value=setorfab||'';
   document.getElementById('pc-datafab').value=brParaIso(datafab||'');
-  document.getElementById('pc-vira').value=vira||'';
-  document.getElementById('pc-viranome').value=viranome||'';
-  document.getElementById('pc-viraserial').value=viraserial||'';
-  document.getElementById('pc-viradata').value=brParaIso(viradata||'');
-  toggleViraPeca();
+  document.getElementById('pc-viraflag').value=vira?'SIM':'NAO';
+  document.getElementById('pc-viraem').value=vira||'';
+  document.getElementById('pc-produto').value='';
+  document.getElementById('fld-pc-produto').style.display='none'; // produto só vale na criação
+  toggleViraPeca(); mostrarInfoVira();
   document.getElementById('pc-id').setAttribute('readonly','true');
   document.getElementById('form-peca-titulo').textContent='✏️ EDITANDO '+id+' (linha '+_linhaEditando+')';
   document.getElementById('pc-cancel').classList.remove('hidden');
@@ -727,10 +818,12 @@ function editarPeca(linha,id,nome,status,serial,setorfab,datafab,vira,viranome,v
 }
 function limparFormPeca(){
   _linhaEditando=0;
-  ['pc-id','pc-nome','pc-serial','pc-datafab','pc-vira','pc-viranome','pc-viraserial','pc-viradata'].forEach(i=>document.getElementById(i).value='');
+  ['pc-id','pc-nome','pc-serial','pc-datafab','pc-viraem'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('pc-status').value='Faltando';
   document.getElementById('pc-setorfab').value='';
-  toggleViraPeca();
+  document.getElementById('pc-viraflag').value='NAO';
+  document.getElementById('fld-pc-produto').style.display='';
+  toggleViraPeca(); mostrarInfoVira();
   document.getElementById('pc-id').removeAttribute('readonly');
   document.getElementById('form-peca-titulo').textContent='➕ NOVA PEÇA';
   document.getElementById('pc-cancel').classList.add('hidden');
@@ -780,15 +873,12 @@ function autoNome(idCampo, nomeCampo){
 }
 
 function toggleViraPeca(){
-  const ehCelula=v=>String(v||'').trim().toLowerCase()==='célula de estruturas';
   const np=document.getElementById('np-setorfab'), pc=document.getElementById('pc-setorfab');
-  const mostraNp=np&&ehCelula(np.value), mostraPc=pc&&ehCelula(pc.value);
-  ['fld-np-vira','fld-np-viranome','fld-np-viraserial','fld-np-viradata'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.style.display=mostraNp?'':'none';
-  });
-  ['fld-pc-vira','fld-pc-viranome','fld-pc-viraserial','fld-pc-viradata'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.style.display=mostraPc?'':'none';
-  });
+  const mostraNp=np&&ehCelulaEstr(np.value), mostraPc=pc&&ehCelulaEstr(pc.value);
+  const fnp=document.getElementById('fld-np-vira'); if(fnp) fnp.style.display=mostraNp?'':'none';
+  const fpc=document.getElementById('fld-pc-vira'); if(fpc) fpc.style.display=mostraPc?'':'none';
+  const sim=mostraPc && ehSimVira((document.getElementById('pc-viraflag')||{}).value);
+  const fem=document.getElementById('fld-pc-viraem'); if(fem) fem.style.display=sim?'':'none';
 }
 document.getElementById('np-setorfab').addEventListener('change',toggleViraPeca);
 document.getElementById('pc-setorfab').addEventListener('change',toggleViraPeca);
