@@ -167,7 +167,10 @@ async function carregarConfigSetores(){
     }
   }catch(_){}
   if(SETORES_LISTA.length===0) SETORES_LISTA=['CAD','GRC','Célula de Estruturas']; // fallback
-  if(MONTAGENS_LISTA.length===0) MONTAGENS_LISTA=[{setor:'Montagem Monoblocos Pesados',pavilhao:'Pav 1'},{setor:'Montagem Fast Flex',pavilhao:'Pav 9'}];
+  if(MONTAGENS_LISTA.length===0) MONTAGENS_LISTA=[
+    {setor:'Montagem 1',descricao:'Monoblocos Pesados',pavilhao:'Pav 1'},
+    {setor:'Montagem 2',descricao:'Monoblocos Pesados',pavilhao:'Pav 2'},
+    {setor:'Montagem Fast Flex',descricao:'Fast Flex',pavilhao:'Pav 9'}];
   renderFiltros();
 }
 function renderFiltros(){
@@ -571,7 +574,9 @@ function gerarListaTransporte(){
   // passo 1: escolher data, observação e conferir origem/destino
   const hojeIso=new Date().toISOString().slice(0,10);
   // opções de destino: células de montagem cadastradas (nome + pavilhão) + setores configurados
-  const destCelulas=MONTAGENS_LISTA.map(m=> m.pavilhao ? (m.setor+' ('+m.pavilhao+')') : m.setor);
+  // rótulo da célula: "Montagem 1 – Monoblocos Pesados (Pav 1)"
+  const rotuloCel=m=> m.setor+(m.descricao&&m.setor.indexOf(m.descricao)<0?' – '+m.descricao:'')+(m.pavilhao?' ('+m.pavilhao+')':'');
+  const destCelulas=MONTAGENS_LISTA.map(rotuloCel);
   // setores que também recebem (ex: CAD, GRC para as estruturas, ou Serralheria/Terceiros)
   const destSetores=SETORES_LISTA.slice();
   const DESTINOS=[...destCelulas, ...destSetores];
@@ -580,9 +585,9 @@ function gerarListaTransporte(){
     const orig=String(d||'').trim();
     if(!orig) return '';
     const u=orig.toUpperCase();
-    // tenta casar com uma célula de montagem cadastrada
-    const cel=MONTAGENS_LISTA.find(m=> u.indexOf(m.setor.toUpperCase())>-1 || m.setor.toUpperCase().indexOf(u)>-1);
-    if(cel) return cel.pavilhao ? (cel.setor+' ('+cel.pavilhao+')') : cel.setor;
+    // tenta casar com uma célula de montagem cadastrada (nome exato; "Montagem" genérico cai na regra abaixo)
+    const cel=MONTAGENS_LISTA.find(m=> u===m.setor.toUpperCase());
+    if(cel) return rotuloCel(cel);
     // "Montagem" genérico -> primeira célula de montagem
     if(u.indexOf('MONTAGEM')>-1 && destCelulas.length) return destCelulas[0];
     // tenta casar com um setor (CAD, GRC, Serralheria...)
@@ -712,7 +717,7 @@ function desenharImagemTransporte(itens, dataTransp, obs, solicitante, horaSalva
     ctx.font='bold 22px Arial'; ctx.textAlign='right';
     ctx.fillText('LISTA DE TRANSPORTE', W-30, 55);
     ctx.font='13px Arial'; ctx.fillStyle='#B9C4D4';
-    ctx.fillText('Movimentacao CAD/GRC -> Montagem', W-30, 80);
+    ctx.fillText('Movimentacao CAD/GRC -> Celulas de Montagem', W-30, 80);
     ctx.textAlign='left';
     let y=150;
     ctx.fillStyle='#1A2540'; ctx.font='bold 13px Arial';

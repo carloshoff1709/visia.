@@ -3,7 +3,7 @@
    Apps Script (dados sempre atuais). Só serve para tornar o app instalável
    e dar um fallback básico offline das telas já visitadas. */
 
-const CACHE = 'visia-v3';
+const CACHE = 'visia-v5';
 const ESSENCIAIS = [
   'index.html',
   'conferencia.html',

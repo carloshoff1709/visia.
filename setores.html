@@ -153,10 +153,11 @@ async function carregarSetores(){
   else{ msg('err','Falha ao carregar setores.'); }
 }
 
-// todos os destinos possíveis = Montagem + nomes dos setores
+// todos os destinos possíveis = células de montagem + nomes dos setores
+const CELULAS_MONTAGEM=['Montagem 1','Montagem 2','Montagem Fast Flex'];
 function todosDestinos(){
-  const nomes=SETORES.map(s=>s.setor).filter(x=>x);
-  return ['Montagem', ...nomes];
+  const nomes=SETORES.map(s=>s.setor).filter(x=>x && !CELULAS_MONTAGEM.includes(x));
+  return [...CELULAS_MONTAGEM, ...nomes];
 }
 
 function render(){

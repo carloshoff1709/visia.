@@ -209,6 +209,12 @@ function cliqueToggle(linha,id,estaDisp){
 
 let _modalLoc=null;
 let SETORES_CONFIG=['CAD','GRC','Célula de Estruturas']; // fallback, atualizado ao carregar
+const CELULAS_MONTAGEM=[
+  {setor:'Montagem 1',        descricao:'Monoblocos Pesados', pavilhao:'Pav 1'},
+  {setor:'Montagem 2',        descricao:'Monoblocos Pesados', pavilhao:'Pav 2'},
+  {setor:'Montagem Fast Flex',descricao:'Fast Flex',          pavilhao:'Pav 9'}
+];
+function ehMontagem(s){ return /^montagem\b/i.test(String(s||'').trim()); }
 async function carregarSetoresConfig(){
   try{
     const r=await api('action=listar_setores');
@@ -219,8 +225,8 @@ async function carregarSetoresConfig(){
 }
 function abrirLocalizacao(linha,id){
   fecharLocalizacao();
-  // Montagem sempre é opção (é o destino final), + os setores configurados
-  const setores=['Montagem', ...SETORES_CONFIG.filter(s=>s.toLowerCase()!=='montagem')];
+  // as células de montagem sempre são opção (destino final), + os setores configurados
+  const setores=[...CELULAS_MONTAGEM.map(c=>c.setor), ...SETORES_CONFIG.filter(s=>!ehMontagem(s))];
   const posicoes=[1,2,3,4,5];
   const m=document.createElement('div');
   m.id='modal-loc';
@@ -234,7 +240,7 @@ function abrirLocalizacao(linha,id){
         ${setores.map(s=>`<button onclick="selSetor(this,'${s}')" data-s="${s}" style="flex:1;min-width:80px;padding:10px;border:1px solid #D8DCE3;background:#EEF0F4;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">${s}</button>`).join('')}
       </div>
       <div id="loc-varal-wrap" style="display:none;">
-        <div style="font-size:11px;color:#6B7280;margin-bottom:5px;">Local na Montagem:</div>
+        <div id="loc-varal-titulo" style="font-size:11px;color:#6B7280;margin-bottom:5px;">Local na Montagem:</div>
         <div id="loc-pos" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
           ${posicoes.map(n=>`<button onclick="selPos(this,'${n}')" data-p="${n}" style="padding:12px 0;border:1px solid #D8DCE3;background:#EEF0F4;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">${n}</button>`).join('')}
         </div>
@@ -256,10 +262,10 @@ function selSetor(btn,s){
   _modalLoc.pos=''; // reseta a posição ao trocar de setor
   document.querySelectorAll('#loc-setores button').forEach(b=>{b.style.background='#EEF0F4';b.style.color='#1A2540';b.style.borderColor='#D8DCE3';});
   btn.style.background='#1D9E75';btn.style.color='#fff';btn.style.borderColor='#1D9E75';
-  // varal só para Montagem
+  // varal só para as células de montagem
   const wrap=document.getElementById('loc-varal-wrap');
   if(wrap){
-    if(s.toLowerCase()==='montagem'){ wrap.style.display='block'; }
+    if(ehMontagem(s)){ wrap.style.display='block'; const c=CELULAS_MONTAGEM.find(x=>x.setor===s); document.getElementById('loc-varal-titulo').textContent='Local na '+s+(c?' ('+c.pavilhao+')':'')+':'; }
     else{ wrap.style.display='none';
       document.querySelectorAll('#loc-pos button').forEach(b=>{b.style.background='#EEF0F4';b.style.color='#1A2540';b.style.borderColor='#D8DCE3';});
     }

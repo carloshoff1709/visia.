@@ -24,6 +24,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .escolha p{font-size:13px;color:#9CA3AF;margin-bottom:24px;}
 .setores{display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto;}
 .setores button{padding:18px;border:none;border-radius:12px;font-size:17px;font-weight:700;color:#fff;cursor:pointer;}
+.setores button small{font-size:12px;font-weight:500;opacity:.85;}
 #reader{width:100%;max-width:480px;margin:0 auto;}
 .leitura{padding:14px;}
 .hint{text-align:center;font-size:12px;color:#9CA3AF;padding:10px 20px;}
@@ -54,7 +55,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <h2>Qual setor é este leitor?</h2>
   <p>Escolha uma vez. Fica gravado neste aparelho.</p>
   <div class="setores" id="setores-botoes">
-    <button class="b-mont" onclick="definirSetor('Montagem')">🏭 MONTAGEM</button>
+    <button class="b-mont" onclick="definirSetor('Montagem 1')">🏭 MONTAGEM 1<br><small>Monoblocos Pesados · Pav 1</small></button>
+    <button class="b-mont" onclick="definirSetor('Montagem 2')">🏭 MONTAGEM 2<br><small>Monoblocos Pesados · Pav 2</small></button>
+    <button class="b-mont" onclick="definirSetor('Montagem Fast Flex')">🏭 MONTAGEM FAST FLEX<br><small>Pav 9</small></button>
   </div>
 </div>
 
@@ -70,7 +73,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <script>
 const URL='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
+const CELULAS_MONTAGEM=[
+  {setor:'Montagem 1',        descricao:'Monoblocos Pesados', pavilhao:'Pav 1'},
+  {setor:'Montagem 2',        descricao:'Monoblocos Pesados', pavilhao:'Pav 2'},
+  {setor:'Montagem Fast Flex',descricao:'Fast Flex',          pavilhao:'Pav 9'}
+];
+function ehMontagem(s){ return /^montagem\b/i.test(String(s||'').trim()); }
 let SETOR=localStorage.getItem('leitor_setor')||'';
+// aparelho configurado como "Montagem" (antes de existirem 2 células): pede para escolher de novo
+if(SETOR.trim().toLowerCase()==='montagem'){ SETOR=''; localStorage.removeItem('leitor_setor'); }
 let scanner=null;
 let ultimaLeitura={id:'',t:0};
 
@@ -83,11 +94,13 @@ function classeSetor(s){
   if(l==='cad') return 'b-cad';
   if(l==='grc') return 'b-grc';
   if(l.indexOf('célula')>-1||l.indexOf('celula')>-1) return 'b-cel';
-  if(l==='montagem') return 'b-mont';
+  if(ehMontagem(s)) return 'b-mont';
   return 'b-outro'; // setores novos (Serralheria, Terceiros, etc.)
 }
 function mostrarBadge(){
-  document.getElementById('badge-wrap').innerHTML=`<span class="setor-badge ${classeSetor(SETOR)}">Setor: ${SETOR}</span>`;
+  const cel=CELULAS_MONTAGEM.find(c=>c.setor===SETOR);
+  const extra=cel?` · ${cel.descricao} (${cel.pavilhao})`:'';
+  document.getElementById('badge-wrap').innerHTML=`<span class="setor-badge ${classeSetor(SETOR)}">Setor: ${SETOR}${extra}</span>`;
 }
 
 function definirSetor(s){
@@ -141,9 +154,8 @@ function onScan(texto){
 function confirmarApontamento(id){
   // pausa o scanner enquanto confirma
   if(scanner){ scanner.pause(true); }
-  const ehMontagem = SETOR.toLowerCase()==='montagem';
-  const varalHtml = ehMontagem ? `
-      <div style="font-size:13px;color:#6B7280;margin:14px 0 6px;">Local na Montagem:</div>
+  const varalHtml = ehMontagem(SETOR) ? `
+      <div style="font-size:13px;color:#6B7280;margin:14px 0 6px;">Local na ${SETOR}:</div>
       <div id="conf-varal" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
         ${[1,2,3,4,5].map(n=>`<button onclick="selVaralConf(this,'${n}')" data-v="${n}" style="padding:12px 0;border:1px solid #D8DCE3;background:#EEF0F4;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">${n}</button>`).join('')}
       </div>
@@ -339,9 +351,9 @@ async function carregarSetoresBotoes(){
   const cont=document.getElementById('setores-botoes');
   if(!cont) return;
   const icone=s=>{ const l=s.toLowerCase(); if(l==='cad')return '📐'; if(l==='grc')return '🧱'; if(l.indexOf('célula')>-1||l.indexOf('celula')>-1)return '🏗️'; if(l.indexOf('serralh')>-1)return '⚙️'; if(l.indexOf('terceiro')>-1)return '🚚'; return '📦'; };
-  // Montagem primeiro, depois os setores configurados
-  let html=`<button class="b-mont" onclick="definirSetor('Montagem')">🏭 MONTAGEM</button>`;
-  setores.filter(s=>s.toLowerCase()!=='montagem').forEach(s=>{
+  // células de montagem primeiro, depois os setores configurados
+  let html=CELULAS_MONTAGEM.map(c=>`<button class="b-mont" onclick="definirSetor('${c.setor}')">🏭 ${c.setor.toUpperCase()}<br><small>${c.descricao!==c.setor.replace(/^Montagem\s*/,'')?c.descricao+' · ':''}${c.pavilhao}</small></button>`).join('');
+  setores.filter(s=>!ehMontagem(s)).forEach(s=>{
     html+=`<button class="${classeSetor(s)}" onclick="definirSetor('${s.replace(/'/g,"\\'")}')">${icone(s)} ${s.toUpperCase()}</button>`;
   });
   cont.innerHTML=html;
