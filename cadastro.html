@@ -273,7 +273,7 @@ function mostrarUsuario(){
 function sair(){ sessionStorage.removeItem('visia_user'); sessionStorage.removeItem('visia_nome'); location.reload(); }
 
 
-function msg(t,txt){const m=document.getElementById('msg');m.className='msg '+t;m.textContent=txt;m.style.display='block';if(t!=='load')setTimeout(()=>m.style.display='none',3000);}
+function msg(t,txt){const m=document.getElementById('msg');m.className='msg '+t;m.textContent=txt;m.style.display='block';if(t!=='load'){clearTimeout(m._to);m._to=setTimeout(()=>m.style.display='none',t==='err'?7000:3000);}}
 function setStatus(t){document.getElementById('status').textContent=t;}
 
 /* ── Abas ── */
@@ -290,6 +290,40 @@ function trocarAba(qual){
 
 /* ══════════ IMPORTAÇÃO ══════════ */
 let IMPORT_DADOS=null;
+let SEM_ID_IMPORT=[]; // linhas com nome de peça e sem ID
+let ERROS_IMPORT=[];  // restrições de datas não cumpridas (bloqueiam a importação)
+
+/* ── RESTRIÇÕES DE PROGRAMAÇÃO ──
+   1. fabricação da peça ANTES da entrada do módulo na linha (mesmo dia não vale)
+   2. saída igual ou depois da entrada
+   3. todas as linhas do produto com a mesma entrada e a mesma saída
+   4. produto com data de entrada; peça com data de fabricação */
+function diaBR(br){ const m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?Date.UTC(+m[3],+m[2]-1,+m[1])/86400000:null; }
+function errosDatasPeca(entrada,saida,fab){
+  const e=diaBR(entrada), s=diaBR(saida), f=diaBR(fab), out=[];
+  if(e==null) out.push('sem data de entrada válida');
+  if(saida && s==null) out.push('data de saída inválida');
+  if(e!=null && s!=null && s<e) out.push('saída ('+saida+') antes da entrada ('+entrada+')');
+  if(!fab) out.push('sem data de fabricação');
+  else if(f==null) out.push('data de fabricação inválida');
+  else if(e!=null && f>=e) out.push('fabricação ('+fab+') não é antes da entrada ('+entrada+')');
+  return out;
+}
+function validarRestricoes(linhasDados){
+  const erros=[], primeira={};
+  linhasDados.forEach(d=>{
+    if(!d) return;
+    const pref='Linha '+d.linha_planilha+' · '+d.idProd+' · '+(d.nome_peca||d.id_peca_base)+': ';
+    errosDatasPeca(d.data_programada,d.data_saida,d.data_fabricacao).forEach(x=>erros.push(pref+x));
+    const p=primeira[d.idProd];
+    if(!p) primeira[d.idProd]=d;
+    else{
+      if(p.data_programada!==d.data_programada) erros.push(pref+'entrada '+(d.data_programada||'vazia')+' diferente da linha '+p.linha_planilha+' ('+(p.data_programada||'vazia')+')');
+      if(p.data_saida!==d.data_saida) erros.push(pref+'saída '+(d.data_saida||'vazia')+' diferente da linha '+p.linha_planilha+' ('+(p.data_saida||'vazia')+')');
+    }
+  });
+  return erros;
+}
 function lerArquivoImport(){
   const inp=document.getElementById('imp-file');
   const file=inp.files[0];
@@ -302,7 +336,11 @@ function lerArquivoImport(){
       // cellDates:true converte datas para Date; a leitura considera UTC para
       // não deslocar o dia pelo fuso de São Paulo.
       const wb=XLSX.read(data,{type:'array',cellDates:true,cellNF:false,cellText:false});
-      const ws=wb.Sheets[wb.SheetNames[0]];
+      // acha a aba de planejamento pelo CONTEÚDO, não pelo nome: é a que tem as colunas
+      // id_produto e id_peca no cabeçalho. Assim a aba pode ter qualquer nome.
+      const cab=n=>((XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,range:0})[0])||[]).map(x=>String(x).trim().toLowerCase());
+      const nomeAba=wb.SheetNames.find(n=>{ const h=cab(n); return h.includes('id_produto')&&h.includes('id_peca'); })||wb.SheetNames[0];
+      const ws=wb.Sheets[nomeAba];
       const linhas=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
       processarLinhasImport(linhas);
     }catch(err){ msg('err','Erro ao ler arquivo: '+err.message); }
@@ -348,34 +386,48 @@ function processarLinhasImport(linhas){
   // sufixoProd / idUnico: utilitários comuns, definidos junto de isoParaBR
   // helper para ler uma coluna de uma linha (aceita variações de nome)
   const campo=(l,nomes)=>{ for(const n of nomes){ for(const k in l){ if(k.toLowerCase().trim()===n) return String(l[k]).trim(); } } return ''; };
+  // para datas: devolve o valor sem converter em texto (célula de data do Excel chega como Date)
+  const campoData=(l,nomes)=>{ for(const n of nomes){ for(const k in l){ if(k.toLowerCase().trim()===n) return normalizarData(l[k] instanceof Date ? l[k] : String(l[k]).trim()); } } return ''; };
   const ehSim=v=>{ const t=String(v||'').trim().toLowerCase(); return t==='sim'||t==='s'||t==='x'||t==='true'||t==='1'; };
   const normSetor=v=>{ const t=(v||'').trim(); return t.toLowerCase()==='célula de estruturas'?'Célula de Estruturas':t.toUpperCase(); };
 
   // primeiro, extrai os dados básicos de cada linha (preservando a ORDEM)
-  const linhasDados=linhas.map(l=>{
+  SEM_ID_IMPORT=[];
+  const linhasDados=linhas.map((l,ix)=>{
     const idProd=campo(l,['id_produto','idproduto']);
     const idPeca=campo(l,['id_peca','idpeca']);
+    // nome escolhido mas ID não digitado (ex: Painel CAD): não importa, mas avisa
+    if(idProd && !idPeca && campo(l,['nome_peca','nomepeca'])) SEM_ID_IMPORT.push((ix+2)+' ('+campo(l,['nome_peca','nomepeca'])+')');
     if(!idProd||!idPeca) return null;
     return {
+      linha_planilha: ix+2,
       idProd,
       nome_produto:campo(l,['nome_produto','nomeproduto']),
-      data_programada:normalizarData(campo(l,['data_programada','dataprogramada'])),
-      data_saida:normalizarData(campo(l,['data_saida','datasaida','data saida','saida'])),
+      data_programada:campoData(l,['data_programada','dataprogramada']),
+      data_saida:campoData(l,['data_saida','datasaida','data saida','saida']),
       id_peca_base:idPeca,
       // nome: usa o da planilha; se vazio e o id for código padrão, preenche pelo mapa
       // código padrão -> nome padrão TRAVADO (ignora o digitado); outros códigos -> usa o nome digitado
       nome_peca:(nomePorId(idPeca) || campo(l,['nome_peca','nomepeca'])),
       serial:campo(l,['serial','codigo_barras','serial (codigo de barras)']),
       setor_fabrica:normSetor(campo(l,['setor_fabrica','setorfabrica','setor que fabrica'])),
-      data_fabricacao:normalizarData(campo(l,['data_fabricacao','datafabricacao','data prev. fabricacao'])),
+      data_fabricacao:campoData(l,['data_fabricacao','datafabricacao','data prev. fabricacao']),
       // novo padrão: coluna "vira?" (SIM/NAO)
       vira_flag:campo(l,['vira_peca?','vira?','vira peca?','vira a peça?','vira a peca?','vira']),
       // compatibilidade com o formato antigo (colunas vira_* preenchidas direto)
       vira_peca_old:campo(l,['vira_peca','virapeca']),
       vira_nome_old:campo(l,['vira_nome','viranome']),
       vira_serial_old:campo(l,['vira_serial','viraserial']),
-      vira_data_old:normalizarData(campo(l,['vira_data','viradata']))
+      vira_data_old:campoData(l,['vira_data','viradata'])
     };
+  });
+
+  ERROS_IMPORT=validarRestricoes(linhasDados);
+  // modelo de PCP: a coluna "verificacao" da planilha também precisa estar OK
+  linhas.forEach((l,ix)=>{
+    const ver=campo(l,['verificacao','verificação']);
+    if(campo(l,['id_produto','idproduto']) && ver && ver.toUpperCase()!=='OK')
+      ERROS_IMPORT.push('Linha '+(ix+2)+' · '+campo(l,['id_produto','idproduto'])+' · '+(campo(l,['nome_peca','nomepeca'])||campo(l,['id_peca','idpeca']))+': '+ver.replace(/;\s*$/,''));
   });
 
   const mapa={};
@@ -435,7 +487,23 @@ function mostrarPreviewImport(){
       Cadastre em "Setores e Fluxos" antes de importar, ou corrija a planilha. Você pode importar assim mesmo, mas esses setores não terão filtro/fluxo configurado.
     </div>`;
   }
-  document.getElementById('imp-resumo').innerHTML=`<strong>${IMPORT_DADOS.length}</strong> produto(s) e <strong>${totalPecas}</strong> peça(s) encontrados.`+avisoSetor;
+  let avisoSemId='';
+  if(SEM_ID_IMPORT.length){
+    avisoSemId=`<div style="background:#FFF7E6;color:#92400E;border:1px solid #F2B807;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12px;">
+      ⚠️ ${SEM_ID_IMPORT.length} linha(s) com nome de peça e <strong>sem ID</strong> — não serão importadas. Digite o ID na planilha e importe de novo:<br>
+      linha ${SEM_ID_IMPORT.slice(0,15).join(', ')}${SEM_ID_IMPORT.length>15?' …':''}
+    </div>`;
+  }
+  let avisoErros='';
+  if(ERROS_IMPORT.length){
+    avisoErros=`<div style="background:#FDEBEC;color:#991B1B;border:1px solid #E24B4A;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12px;">
+      ⛔ <strong>Importação bloqueada:</strong> ${ERROS_IMPORT.length} problema(s) de programação. Corrija na planilha (coluna "verificacao") e escolha o arquivo de novo.
+      <ul style="margin:6px 0 0 18px;max-height:180px;overflow:auto;">${ERROS_IMPORT.slice(0,60).map(x=>'<li>'+x+'</li>').join('')}</ul>
+      ${ERROS_IMPORT.length>60?'… e mais '+(ERROS_IMPORT.length-60):''}
+    </div>`;
+  }
+  document.querySelectorAll('#imp-preview .btn:not(.sec)').forEach(b=>{ b.disabled=ERROS_IMPORT.length>0; b.style.opacity=ERROS_IMPORT.length?'.4':''; b.style.cursor=ERROS_IMPORT.length?'not-allowed':''; });
+  document.getElementById('imp-resumo').innerHTML=`<strong>${IMPORT_DADOS.length}</strong> produto(s) e <strong>${totalPecas}</strong> peça(s) encontrados.`+avisoErros+avisoSemId+avisoSetor;
   // tabela de prévia
   const thead=document.querySelector('#imp-tbl thead');
   const tbody=document.querySelector('#imp-tbl tbody');
@@ -456,6 +524,7 @@ function mostrarPreviewImport(){
 
 async function confirmarImport(modo){
   if(!IMPORT_DADOS||!IMPORT_DADOS.length) return;
+  if(ERROS_IMPORT.length){ msg('err','Importação bloqueada: corrija as datas indicadas na prévia.'); return; }
   const totalPecas=IMPORT_DADOS.reduce((s,p)=>s+p.pecas.length,0);
   const txt=modo==='substituir'
     ? `SUBSTITUIR TUDO?\n\nIsto vai APAGAR todos os produtos e peças atuais e cadastrar ${IMPORT_DADOS.length} produto(s) e ${totalPecas} peça(s).\n\nEsta ação não pode ser desfeita.`
@@ -554,6 +623,11 @@ function adicionarPecaCascata(){
   let serial=document.getElementById('np-serial').value.trim();
   const setorfab=document.getElementById('np-setorfab').value;
   const datafab=isoParaBR(document.getElementById('np-datafab').value);
+  const entradaProd=isoParaBR(document.getElementById('p-data').value);
+  if(entradaProd){
+    const er=errosDatasPeca(entradaProd,'',datafab);
+    if(er.length){ msg('err','Peça '+id+': '+er.join('; ')+'.'); return; }
+  }
   const vira_flag=ehCelulaEstr(setorfab)?document.getElementById('np-viraflag').value:'';
   // código padrão: nome travado (mesma regra da importação)
   const padrao=nomePorId(id); if(padrao) nome=padrao;
@@ -639,6 +713,10 @@ async function salvarProduto(){
   const saida=isoParaBR(document.getElementById('p-saida').value);
   const ei=document.getElementById('p-data').value, es=document.getElementById('p-saida').value;
   if(ei && es && es<ei){ msg('err','A data de saída é anterior à data de entrada.'); return; }
+  if(!ei){ msg('err','Informe a data de entrada na linha.'); return; }
+  const errosPecas=[];
+  pecasCascata.forEach(p=>{ const er=errosDatasPeca(data,saida,p.data_fabricacao); if(er.length) errosPecas.push((p.nome||p.id)+': '+er.join(', ')); });
+  if(errosPecas.length){ msg('err','Corrija antes de salvar — '+errosPecas.join(' | ')); return; }
 
   const {unidades, erros}=montarUnidadesCascata(id);
   if(erros.length){ msg('err',erros.join(' ')); return; }
@@ -783,6 +861,13 @@ async function salvarPeca(){
     const info=MAPA_PECAS[vira];
     if(!vira||!info){ msg('err','Escolha uma peça cadastrada em "Vira em".'); return; }
     viranome=info.nome||''; viraserial=info.serial||''; viradata=info.data_fabricacao||'';
+  }
+  if(idProd){
+    const prod=LISTA_PRODUTOS.find(p=>p.id_produto===idProd);
+    if(prod && prod.data_programada){
+      const er=errosDatasPeca(prod.data_programada,'',datafab);
+      if(er.length){ msg('err','Peça '+id+': '+er.join('; ')+'.'); return; }
+    }
   }
   if(setorfab && !SETORES_VALIDOS.map(x=>x.toUpperCase()).includes(setorfab.toUpperCase())
      && !confirm('O setor "'+setorfab+'" não está cadastrado em "Setores e Fluxos". Salvar mesmo assim?')) return;
