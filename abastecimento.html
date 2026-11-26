@@ -48,6 +48,9 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
 .peca .pmeta{font-size:10px;color:#9CA3AF;}
 .peca .psetor{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;background:#EEF2F7;color:#185FA5;white-space:nowrap;}
 .peca.sel{outline:2px solid #185FA5;background:#EFF5FC;}
+/* peça tirada do planejamento depois de apontada: fica no card para remanejamento */
+.peca.excedente{background:repeating-linear-gradient(135deg,#fff,#fff 8px,#F3F4F6 8px,#F3F4F6 16px);border-style:dashed;}
+.tag-exc{font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;background:#4B5563;color:#fff;white-space:nowrap;letter-spacing:.3px;}
 /* estados base */
 .e-a_produzir .pdot{background:#C4CDD8;}
 .e-produzida .pdot{background:#1D9E75;}
@@ -100,6 +103,7 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
     <span class="lg"><span class="dot" style="background:#FFD43B;"></span>Transportar (fabricada)</span>
     <span class="lg"><span class="dot" style="background:#E24B4A;"></span>Transportar (a fabricar)</span>
     <span class="lg"><span class="dot" style="background:#185FA5;"></span>Entregue</span>
+    <span class="lg"><span class="tag-exc">EXCEDENTE</span>Tirada do planejamento</span>
   </div>
 </div>
 
@@ -176,11 +180,12 @@ async function carregarConfigSetores(){
 function renderFiltros(){
   const cont=document.getElementById('filtros');
   if(!cont) return;
+  const leg=cont.querySelector('.legenda'); const legHtml=leg?leg.outerHTML:'';  // mantém a legenda
   let html=`<button class="fbtn on" onclick="setFiltro('todos',this)">Todos</button>`;
   SETORES_LISTA.forEach(s=>{
     html+=`<button class="fbtn" onclick="setFiltro('${s.replace(/'/g,"\\'")}',this)">${s}</button>`;
   });
-  cont.innerHTML=html;
+  cont.innerHTML=html+legHtml;
 }
 // Retorna o destino sugerido de uma peça a partir do setor dela (1º destino configurado).
 // Fallback: Célula->CAD/GRC (o que vira), demais->Montagem.
@@ -288,11 +293,13 @@ function render(){
       // nome em destaque e ID ao lado; sem nome cadastrado, mostra só o ID
       const rotuloPeca = pc.nome ? `<span class="pnome">${pc.nome}</span><span class="pidpeca">${idFmt.principal}</span>` : `<span class="pnome">${idFmt.principal}</span>`;
       const localPeca = localExibir(pc);  // local quando produzida (varal/buffer/setor)
-      let html=`<div class="peca ${cls}${selCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
+      const excTag = pc.excedente ? `<span class="tag-exc" title="Excedente: tirada do planejamento depois de apontada. Remanejar para outro módulo ou descartar.">EXCEDENTE</span>` : '';
+      const excCls = pc.excedente ? ' excedente' : '';
+      let html=`<div class="peca ${cls}${selCls}${excCls}" ${podeselecionar?`onclick="toggleSel(${pc.linha})"`:''}>
         <span class="pdot"></span>
         <div class="pinfo">
-          <div class="ptopo">${rotuloPeca}${setorTag}</div>
-          <span class="pmeta">${data}${localPeca}</span>
+          <div class="ptopo">${rotuloPeca}${setorTag}${excTag}</div>
+          <span class="pmeta">${data}${localPeca}${pc.excedente?' · desvinculada do planejamento — remanejar':''}</span>
         </div>
       </div>`;
       // estrutura ligada (Célula de Estruturas): aparece recuada sob a peça que ela vira
@@ -306,10 +313,10 @@ function render(){
         const viraFmt=formatarId(es.vira_peca, m.id_produto);
         const esRotulo = es.nome ? `<span class="pnome">↳ ${es.nome}</span><span class="pidpeca">${esIdFmt.principal}</span>` : `<span class="pnome">↳ ${esIdFmt.principal}</span>`;
         const esLocal = localExibir(es);
-        html+=`<div class="peca estrutura ${escls}${essel}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
+        html+=`<div class="peca estrutura ${escls}${essel}${es.excedente?' excedente':''}" style="margin-left:18px;border-left:2px solid #C9B8E8;" ${espode?`onclick="toggleSel(${es.linha})"`:''}>
           <span class="pdot"></span>
           <div class="pinfo">
-            <div class="ptopo">${esRotulo}<span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span></div>
+            <div class="ptopo">${esRotulo}<span class="psetor" style="background:#EDE4FA;color:#6D4AAE;">Célula</span>${es.excedente?'<span class="tag-exc">EXCEDENTE</span>':''}</div>
             <span class="pmeta">${esdata} · vira ${viraFmt.principal}${esLocal}</span>
           </div>
         </div>`;

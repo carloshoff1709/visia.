@@ -71,6 +71,8 @@
   .mk.entregue{background:var(--azul);}
   .mk.durante{box-shadow:0 0 0 3px var(--ambar);}
   .mk.depois{box-shadow:0 0 0 3px var(--vermelho);}
+  .mk.excedente{border-radius:3px;border:2px dashed #4B5563;}
+  .tag-exc{font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;background:#4B5563;color:#fff;margin-left:4px;}
   .semdata{position:absolute;top:9px;left:8px;font-size:11px;color:var(--suave);font-style:italic;}
   .oculto{display:none;}
   @media (max-width:640px){ :root{--col:190px;} .legenda{margin-left:0;} }
@@ -234,10 +236,10 @@ function desenhar(){
         const nomeFase=f==='durante'?' — fabricada com o módulo na linha':f==='depois'?' — fabricada após a saída do módulo':'';
         const estadoTxt={a_produzir:'a produzir',produzida:'produzida',entregue:'entregue na montagem'}[p.estado]||p.estado||'';
         const marcador=d!=null
-          ? `<div class="mk ${p.estado||'a_produzir'} ${f}" style="left:${px(d)+DIA/2-8}px" title="${p.id}: fabricação ${p.data_fab}, ${estadoTxt}${nomeFase}"></div>`
+          ? `<div class="mk ${p.estado||'a_produzir'} ${f}${p.excedente?' excedente':''}" style="left:${px(d)+DIA/2-8}px" title="${p.id}: fabricação ${p.data_fab}, ${estadoTxt}${nomeFase}${p.excedente?' — EXCEDENTE (tirada do planejamento)':''}"></div>`
           : `<div class="semdata">sem data de fabricação</div>`;
         h+=`<div class="row peca${p.estr?' estr':''}">
-          <div class="esq"><span class="id" title="${p.id}">${p.estr?'↳ ':''}${p.nome||idCurto(p.id,m.id_produto)}</span><span class="nm">${p.nome?idCurto(p.id,m.id_produto):''}</span></div>
+          <div class="esq"><span class="id" title="${p.id}">${p.estr?'↳ ':''}${p.nome||idCurto(p.id,m.id_produto)}</span><span class="nm">${p.nome?idCurto(p.id,m.id_produto):''}${p.excedente?'<span class="tag-exc">EXCEDENTE</span>':''}</span></div>
           <div class="faixa" style="width:${largura}px">${fds}${janela}${linhaHoje}${marcador}</div>
         </div>`;
       });
