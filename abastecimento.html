@@ -92,6 +92,7 @@ body{font-family:'Source Sans 3','Segoe UI',Arial,sans-serif;background:#F4F6F9;
   <h1>Gestão de Fluxo e Produção</h1>
   <span id="user-lbl" style="font-size:11px;color:rgba(255,255,255,.7);"></span>
   <button id="ind-ultima" onclick="abrirListasTransporte()" style="background:#EF9F27;color:#1A2540;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;">📋 Listas de transporte</button>
+  <button id="btn-relatorio" onclick="abrirRelatorio()" style="display:none;background:#fff;color:#1A2540;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;">📄 Gerar relatório</button>
   <a class="nav-voltar" href="index.html">&larr; Menu</a>
 </div>
 
@@ -537,6 +538,140 @@ function mostrarUser(){
   const el=document.getElementById('user-lbl');
   const nome=sessionStorage.getItem('visia_nome');
   if(el) el.textContent = nome ? ('Logado: '+nome) : '';
+  const br=document.getElementById('btn-relatorio');
+  if(br) br.style.display = ehGestor() ? 'inline-block' : 'none';
+}
+
+/* ═══════════ RELATÓRIO DE PRODUÇÃO POR ÁREA (só master e administrador) ═══════════ */
+function ehGestor(){
+  const p=(sessionStorage.getItem('visia_perfil')||'').toLowerCase();
+  return !!sessionStorage.getItem('visia_user') && p.split(',').map(x=>x.trim()).some(x=>x==='master'||x==='administrador');
+}
+function abrirRelatorio(){
+  if(!ehGestor()){ alert('Relatório disponível só para os perfis master e administrador.'); return; }
+  const areas=SETORES_LISTA.slice();
+  const ov=document.createElement('div'); ov.className='overlay'; ov.id='ov-rel';
+  ov.innerHTML=`<div class="modal" style="max-width:420px;text-align:left;">
+    <h2>📄 Gerar relatório</h2>
+    <label>Área</label>
+    <select id="rel-area" style="width:100%;padding:10px;border:1px solid #D8DCE3;border-radius:8px;font-size:14px;margin-bottom:14px;">
+      <option value="__todas">Todas (em sequência)</option>${areas.map(a=>`<option value="${a}">${a}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;"><label>Entrada na linha de</label><input id="rel-de" type="date"></div>
+      <div style="flex:1;"><label>até</label><input id="rel-ate" type="date"></div>
+    </div>
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:#374151;margin-bottom:6px;"><input id="rel-entregues" type="checkbox" checked style="width:auto;margin:0;"> Incluir peças já entregues</label>
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:#374151;margin-bottom:16px;"><input id="rel-exc" type="checkbox" checked style="width:auto;margin:0;"> Mostrar excedentes</label>
+    <div class="mbtns">
+      <button class="mb-cancel" onclick="fecharOv('ov-rel')">Cancelar</button>
+      <button class="mb-ok" onclick="gerarRelatorio()">Gerar PDF</button>
+    </div>
+    <p style="font-size:11px;color:#9CA3AF;margin:10px 0 0;text-align:left;">Abre o relatório numa nova aba. Na janela de impressão, escolha "Salvar como PDF".</p>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function relDia(br){ const m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m?Date.UTC(+m[3],+m[2]-1,+m[1])/86400000:null; }
+function relEsc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function gerarRelatorio(){
+  const area=document.getElementById('rel-area').value;
+  const de=document.getElementById('rel-de').value, ate=document.getElementById('rel-ate').value;
+  const comEntregues=document.getElementById('rel-entregues').checked, comExc=document.getElementById('rel-exc').checked;
+  fecharOv('ov-rel');
+  const isoDia=iso=>{ if(!iso) return null; const p=iso.split('-'); return Date.UTC(+p[0],+p[1]-1,+p[2])/86400000; };
+  const dDe=isoDia(de), dAte=isoDia(ate);
+  const hoje=Math.floor((Date.now()-3*3600000)/86400000);   // hoje em Brasília
+  const areas = area==='__todas' ? SETORES_LISTA.slice() : [area];
+  const up=x=>String(x||'').trim().toUpperCase();
+  const mods=MODULOS.filter(m=>{ const d=relDia(m.data_entrada); if(dDe!=null&&(d==null||d<dDe)) return false; if(dAte!=null&&(d==null||d>dAte)) return false; return true; });
+
+  // estado exibido de uma peça
+  function estado(pc){
+    if(pc.excedente) return 'Excedente';
+    if(pc.estado==='entregue') return 'Entregue';
+    if(pc.estado==='produzida') return 'Produzida';
+    const d=relDia(pc.data_fab); return (d!=null && d<hoje) ? 'Atrasada' : 'A produzir';
+  }
+  function obs(pc,est,viraTxt){
+    if(est==='Excedente') return 'Desvinculada do plano — remanejar';
+    if(est==='Atrasada'){ const n=hoje-relDia(pc.data_fab); return 'Fabricação vencida há '+n+' dia'+(n>1?'s':''); }
+    if(viraTxt) return viraTxt;
+    if(pc.estado!=='a_produzir') return [pc.setor_atual,pc.posicao].filter(Boolean).join(' · ');
+    return '—';
+  }
+  function linha(pc,sub,viraTxt){
+    const est=estado(pc);
+    if(!comEntregues && est==='Entregue') return null;
+    if(!comExc && est==='Excedente') return null;
+    return { sub, nome: pc.nome||formatarId(pc.id,'').principal, id: pc.id, serial: String(pc.serial||'').trim()||'—', fab: pc.data_fab||'—', est,
+             apont: pc.apontado_em ? (pc.apontado_em+(pc.apontado_por?' · '+pc.apontado_por:'')) : '—', obs: obs(pc,est,viraTxt) };
+  }
+  // explode por área: módulo → peças da área (+ estrutura vinculada sob a peça)
+  const secoes=areas.map(a=>{
+    const A=up(a), ehCelula = A==='CÉLULA DE ESTRUTURAS';
+    const blocos=[];
+    mods.forEach(m=>{
+      const linhas=[];
+      m.pecas.forEach(pc=>{
+        const idCurto=formatarId(pc.id,m.id_produto).principal;
+        const nomePc=pc.nome||idCurto;
+        if(up(pc.setor_fabrica)===A){
+          const l=linha(pc,false,''); if(l){ l.id=idCurto; linhas.push(l); }
+          if(pc.estrutura){ const es=pc.estrutura; const l2=linha(es,true,'Vira '+nomePc); if(l2){ l2.id=formatarId(es.id,m.id_produto).principal; linhas.push(l2); } }
+        } else if(ehCelula && pc.estrutura){
+          const es=pc.estrutura; const l2=linha(es,false,'Vira '+nomePc+(es.setor_atual?' · '+es.setor_atual:'')); if(l2){ l2.id=formatarId(es.id,m.id_produto).principal; linhas.push(l2); }
+        }
+      });
+      if(linhas.length) blocos.push({m,linhas});
+    });
+    const todas=blocos.flatMap(b=>b.linhas).filter(l=>!l.sub);
+    const cont=k=>todas.filter(l=>l.est===k).length;
+    return { area:a, blocos, resumo:{ modulos:blocos.length, pecas:todas.length, aprod:cont('A produzir'), prod:cont('Produzida'), entr:cont('Entregue'), atr:cont('Atrasada'), exc:cont('Excedente') } };
+  });
+  const tot=k=>secoes.reduce((s,x)=>s+x.resumo[k],0);
+  const quem=(sessionStorage.getItem('visia_nome')||sessionStorage.getItem('visia_user')||'-')+' ('+(sessionStorage.getItem('visia_perfil')||'')+')';
+  const agora=new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR').slice(0,5);
+  const filtroTxt=(area==='__todas'?'Área: todas (em sequência)':'Área: '+area)+(de||ate?' · Entrada na linha: '+(de?brData(de):'início')+' a '+(ate?brData(ate):'fim'):' · Todos os módulos em aberto');
+  const COR={'A produzir':['#F1F2F4','#4B5563'],'Produzida':['#E8F6F0','#158060'],'Entregue':['#E6F1FB','#0C447C'],'Atrasada':['#FCEBEB','#A32D2D'],'Excedente':['#E5E7EB','#374151']};
+  const tab=ls=>`<table class="t"><thead><tr><th style="width:20%">Peça</th><th style="width:12%">ID</th><th style="width:9%">Serial</th><th style="width:10%">Fabricação</th><th style="width:10%">Estado</th><th style="width:17%">Apontado em</th><th>Local / observação</th></tr></thead><tbody>${
+    ls.map(l=>`<tr><td class="${l.sub?'sub':''}">${l.sub?'↳ ':''}${relEsc(l.nome)}</td><td>${relEsc(l.id)}</td><td>${relEsc(l.serial)}</td><td>${relEsc(l.fab)}</td><td style="background:${COR[l.est][0]};color:${COR[l.est][1]};font-weight:700">${l.est}</td><td>${relEsc(l.apont)}</td><td class="obs">${relEsc(l.obs)}</td></tr>`).join('')}</tbody></table>`;
+  const meta=m=>[m.celula, m.tipologia?'Tipologia '+m.tipologia:'', m.data_entrada?'entrada '+m.data_entrada:'', m.data_saida?'saída '+m.data_saida:''].filter(Boolean).join(' · ');
+  const corpo=secoes.filter(x=>x.blocos.length || area!=='__todas').map((sec,i)=>`<section class="${i?'quebra':''}">
+      <div class="sec"><b>${relEsc(sec.area)}</b><span>${sec.resumo.modulos} módulo(s) · ${sec.resumo.pecas} peça(s)</span></div>
+      ${sec.blocos.length? sec.blocos.map(b=>`<div class="mod"><div class="mt">${relEsc(b.m.id_produto)} · ${relEsc(b.m.nome_produto||'')}</div><div class="mm">${relEsc(meta(b.m))}</div>${tab(b.linhas)}</div>`).join('') : '<p class="vazio">Nenhuma peça desta área no filtro escolhido.</p>'}
+    </section>`).join('');
+  const resumoHtml=`<table class="t r"><thead><tr><th>Área</th><th>Módulos</th><th>Peças</th><th>A produzir</th><th>Produzidas</th><th>Entregues</th><th>Atrasadas</th><th>Excedentes</th></tr></thead><tbody>${
+    secoes.map(x=>`<tr><td>${relEsc(x.area)}</td><td>${x.resumo.modulos}</td><td>${x.resumo.pecas}</td><td>${x.resumo.aprod}</td><td>${x.resumo.prod}</td><td>${x.resumo.entr}</td><td class="${x.resumo.atr?'red':''}">${x.resumo.atr}</td><td>${x.resumo.exc}</td></tr>`).join('')}
+    ${secoes.length>1?`<tr class="tot"><td>Total</td><td>—</td><td>${tot('pecas')}</td><td>${tot('aprod')}</td><td>${tot('prod')}</td><td>${tot('entr')}</td><td>${tot('atr')}</td><td>${tot('exc')}</td></tr>`:''}</tbody></table>`;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de produção por área — VISIA</title><style>
+    @page{size:A4 portrait;margin:12mm 12mm 14mm}
+    *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1A2540;margin:0;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .cab{background:#1A2540;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-radius:4px}
+    .cab .lg{font-size:20px;font-weight:800;color:#5FA8E8;letter-spacing:1px}.cab .lg small{display:block;font-size:7px;color:#B9C4D4;letter-spacing:2px;font-weight:400}
+    .cab .tt{text-align:right}.cab .tt b{font-size:14px;display:block}.cab .tt span{font-size:9px;color:#B9C4D4}
+    h2{font-size:13px;margin:14px 0 6px}
+    .t{width:100%;border-collapse:collapse;table-layout:fixed}.t th{background:#F5F7FA;color:#6B7280;text-align:left;font-size:9px;padding:4px 5px;border-bottom:1px solid #E1E6EC}
+    .t td{padding:4px 5px;border-bottom:1px solid #E1E6EC;vertical-align:middle;word-wrap:break-word}.t tr{page-break-inside:avoid}
+    .t.r td,.t.r th{text-align:center}.t.r td:first-child,.t.r th:first-child{text-align:left}.t .tot td{font-weight:700;background:#F5F7FA}.red{color:#A32D2D;font-weight:700}
+    td.sub{padding-left:14px;color:#6B7280}td.obs{color:#6B7280}
+    .sec{border-left:4px solid #185FA5;padding:2px 8px;margin:16px 0 8px;display:flex;justify-content:space-between;align-items:baseline}.sec b{font-size:14px}.sec span{color:#6B7280;font-size:10px}
+    .mod{margin-bottom:10px;page-break-inside:avoid}.mt{font-weight:700;font-size:11px}.mm{color:#6B7280;font-size:9.5px;margin-bottom:3px}
+    .quebra{page-break-before:always}.nota{color:#6B7280;font-size:9px;margin:4px 0 0}.vazio{color:#9CA3AF;font-style:italic}
+    .rod{margin-top:14px;border-top:1px solid #E1E6EC;padding-top:4px;color:#9CA3AF;font-size:8.5px}
+    @media screen{body{max-width:900px;margin:16px auto}.acoes{text-align:right;margin-bottom:8px}.acoes button{padding:8px 16px;font-size:13px;font-weight:700;border:none;border-radius:6px;background:#185FA5;color:#fff;cursor:pointer}}
+    @media print{.acoes{display:none}}
+  </style></head><body>
+    <div class="acoes"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
+    <div class="cab"><div class="lg">VISIA<small>CONSTRUÇÃO MODULAR</small></div><div class="tt"><b>Relatório de produção por área</b><span>${relEsc(filtroTxt)}<br>Gerado em ${agora} por ${relEsc(quem)}</span></div></div>
+    <h2>Resumo por área</h2>${resumoHtml}
+    <p class="nota">Atrasada = data de fabricação vencida e peça ainda não produzida. Apontado em = data e hora do último registro da peça (leitor ou conferência) e quem registrou.</p>
+    ${corpo}
+    <div class="rod">VISIA Construção Modular · Sistema de Gestão de Produção · gerado em ${agora}</div>
+    <script>setTimeout(function(){window.print();},400);<\/script>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(!w){ alert('O navegador bloqueou a nova aba. Libere pop-ups para este site e tente de novo.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 /* ---- LISTA DE TRANSPORTE (imagem PNG) ---- */
