@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carga das formas — Visia</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1A2540">
+<style>
+  :root{
+    --marinho:#1A2540; --azul:#185FA5; --fundo:#EEF1F5; --linha:#E1E6EC;
+    --texto:#1A2540; --suave:#6B7280; --verde:#1D9E75; --ambar:#EF9F27; --vermelho:#E24B4A;
+    --col:230px; --dia:34px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--fundo);color:var(--texto);}
+  header{background:var(--marinho);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header .logo{font-size:22px;font-weight:800;color:#5FA8E8;letter-spacing:.5px;}
+  header h1{font-size:16px;font-weight:700;flex:1;}
+  header a{color:#B9C4D4;text-decoration:none;font-size:13px;padding:6px 12px;border:1px solid rgba(255,255,255,.2);border-radius:7px;}
+  .barra{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 22px;background:#fff;border-bottom:1px solid var(--linha);}
+  .barra button,.barra select{font-size:13px;padding:7px 12px;border:1px solid #D8DCE3;background:#F5F7FA;border-radius:7px;cursor:pointer;color:#374151;}
+  .barra button:hover{background:#E9EDF2;}
+  .barra label{font-size:13px;color:#374151;display:inline-flex;align-items:center;gap:6px;}
+  .legenda{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto;font-size:12px;color:var(--suave);}
+  .legenda span{display:inline-flex;align-items:center;gap:5px;}
+  .lg{width:14px;height:12px;border-radius:3px;display:inline-block;}
+  #status{font-size:13px;color:var(--suave);padding:10px 22px;}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;padding:0 22px 14px;}
+  .card{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:12px 14px;}
+  .card .nm{font-size:13px;font-weight:700;}
+  .card .st{font-size:11px;color:var(--suave);margin:2px 0 8px;}
+  .card .nums{display:flex;gap:14px;font-size:12px;color:var(--suave);}
+  .card .nums b{display:block;font-size:18px;color:var(--texto);}
+  .card.alerta{border-color:var(--vermelho);} .card.alerta .estourado{color:var(--vermelho);}
+
+  .area{overflow:auto;background:#fff;margin:0 22px 14px;border:1px solid var(--linha);border-radius:10px;}
+  .grade{position:relative;min-width:max-content;}
+  .row{display:flex;border-bottom:1px solid #F0F2F5;min-height:40px;}
+  .esq{position:sticky;left:0;z-index:3;width:var(--col);flex-shrink:0;background:#fff;border-right:1px solid var(--linha);padding:6px 12px;display:flex;flex-direction:column;justify-content:center;}
+  .esq .a{font-size:13px;font-weight:700;} .esq .b{font-size:11px;color:var(--suave);}
+  .dias{display:flex;}
+  .cab{position:sticky;top:0;z-index:4;background:#fff;}
+  .cab .esq{z-index:5;font-size:12px;color:var(--suave);}
+  .cab .row{min-height:0;}
+  .mes{font-size:12px;font-weight:700;padding:3px 4px;border-left:1px solid var(--linha);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
+  .dd{width:var(--dia);flex-shrink:0;font-size:10px;color:var(--suave);text-align:center;line-height:22px;border-left:1px solid #F3F4F6;}
+  .dd.fds{background:#FAFAFB;} .dd.hoje{background:var(--vermelho);color:#fff;font-weight:700;border-radius:4px;}
+  .cel{width:var(--dia);flex-shrink:0;border-left:1px solid #F3F4F6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;}
+  .cel.fds{background:#FAFAFB;}
+  .cel.folga{background:#DCFCE7;color:#166534;}
+  .cel.limite{background:#FFF3C4;color:#92400E;}
+  .cel.acima{background:#FDDADA;color:#991B1B;}
+  .cel.hoje{box-shadow:inset 2px 0 0 var(--vermelho);}
+  .cel.sel{outline:2px solid var(--azul);outline-offset:-2px;}
+
+  .detalhe{margin:0 22px 22px;background:#fff;border:1px solid var(--linha);border-radius:10px;padding:14px 16px;font-size:13px;}
+  .detalhe h3{font-size:14px;margin-bottom:8px;}
+  .detalhe table{width:100%;border-collapse:collapse;font-size:12px;}
+  .detalhe th,.detalhe td{text-align:left;padding:5px 6px;border-bottom:1px solid #F0F2F5;}
+  .detalhe th{color:var(--suave);font-weight:600;}
+  .so-impressao{display:none;}
+  @media (max-width:640px){ :root{--col:150px;} .legenda{margin-left:0;} }
+  @media print{
+    @page{size:A3 landscape;margin:8mm;}
+    body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    header a,.barra button,.barra select,.barra label,#status,.detalhe{display:none !important;}
+    .barra{padding:4px 0;border:none;} .legenda{margin-left:0;}
+    .cards{padding:6px 0;grid-template-columns:repeat(4,1fr);}
+    .area{overflow:visible;margin:0;border:none;}
+    .esq,.cab{position:static !important;}
+    .so-impressao{display:block;font-size:11px;color:#6B7280;padding:4px 0;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">VISIA</span>
+  <h1>Carga das formas</h1>
+  <a href="index.html">&larr; Menu</a>
+</header>
+
+<div class="barra">
+  <label>Período
+    <select id="periodo" onchange="mudarPeriodo()">
+      <option value="30">30 dias</option><option value="60" selected>60 dias</option><option value="90">90 dias</option><option value="120">120 dias</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="so-ok" onchange="desenhar()"> Só linhas OK no planejamento</label>
+  <button onclick="carregar()">Atualizar</button>
+  <button onclick="imprimirA3()">🖨 Imprimir A3</button>
+  <div class="legenda">
+    <span><span class="lg" style="background:#DCFCE7;"></span>Folga</span>
+    <span><span class="lg" style="background:#FFF3C4;"></span>No limite</span>
+    <span><span class="lg" style="background:#FDDADA;"></span>Acima das formas</span>
+    <span><span style="width:2px;height:12px;background:var(--vermelho);display:inline-block;"></span>Hoje</span>
+  </div>
+</div>
+
+<div id="status">Carregando a carga…</div>
+<div class="so-impressao" id="info-impressao"></div>
+<div class="cards" id="cards"></div>
+<div class="area" id="area"><div class="grade" id="grade"></div></div>
+<div class="detalhe" id="detalhe" style="display:none;"></div>
+
+<script>
+const URL='https://script.google.com/macros/s/AKfycbyRmbuI33AEe4LJObYZZ4WPujjc3fyzAzHHMd1kli1pUQaar-Y99xulhfRgixecuoW0/exec';
+let ATIVOS=[], PECAS=[], DIA=34, INI=0, DIAS=60, SEL=null;
+
+let _cb=0;
+function jsonp(params){
+  return new Promise((res,rej)=>{
+    const cb='__cbc'+(_cb++); const s=document.createElement('script');
+    const to=setTimeout(()=>{limpa();rej(new Error('timeout'));},20000);
+    function limpa(){clearTimeout(to);delete window[cb];s.remove();}
+    window[cb]=d=>{limpa();res(d);};
+    s.onerror=()=>{limpa();rej(new Error('erro'));};
+    s.src=URL+'?'+params+'&callback='+cb+'&t='+Date.now();
+    document.body.appendChild(s);
+  });
+}
+async function api(params){
+  try{ return await jsonp(params); }catch(_){}
+  try{ const r=await fetch(URL+'?'+params+'&t='+Date.now(),{cache:'no-store'}); if(r.ok) return JSON.parse(await r.text()); }catch(_){}
+  return null;
+}
+
+/* datas como número de dias (UTC), sem efeito de fuso */
+function dia(s){ const m=String(s||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?Math.floor(Date.UTC(+m[3],+m[2]-1,+m[1])/86400000):null; }
+function hojeDia(){ return Math.floor((Date.now()-3*3600000)/86400000); }   // hoje em Brasília
+function fmt(d){ const x=new Date(d*86400000); return String(x.getUTCDate()).padStart(2,'0')+'/'+String(x.getUTCMonth()+1).padStart(2,'0'); }
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function num(v){ return (Math.round(v*100)/100).toLocaleString('pt-BR'); }
+function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function carregar(){
+  const st=document.getElementById('status');
+  st.textContent='Carregando a carga…';
+  const r=await api('action=carga_formas');
+  if(!r||!r.ok){ st.textContent='Não foi possível carregar: '+((r&&r.erro)||'verifique a conexão.'); return; }
+  ATIVOS=r.ativos||[];
+  PECAS=(r.pecas||[]).map(p=>({...p, d:dia(p.data)})).filter(p=>p.d!=null);
+  if(!ATIVOS.length){ st.textContent='Nenhum ativo cadastrado na aba Ativos da planilha.'; return; }
+  INI=hojeDia();
+  st.textContent=ATIVOS.length+' ativo(s) · '+PECAS.length+' peça(s) planejada(s) com forma · atualizado às '+new Date().toLocaleTimeString('pt-BR').slice(0,5)+'. Clique num dia para ver as peças.';
+  desenhar();
+}
+function mudarPeriodo(){ DIAS=+document.getElementById('periodo').value; desenhar(); }
+
+/* peças que ocupam a forma no dia d: fabricadas de (d - ciclo + 1) até d */
+function pecasNoDia(a,d){
+  const soOk=document.getElementById('so-ok').checked;
+  return PECAS.filter(p=>p.ativo===a.ativo && p.d<=d && p.d>d-(a.ciclo||1) && (!soOk||p.ok));
+}
+function carga(a,d){ return pecasNoDia(a,d).reduce((s,p)=>s+(p.ocupacao||1),0); }
+
+function desenhar(){
+  const hoje=hojeDia(), FIM=INI+DIAS-1;
+  // cartões de resumo
+  document.getElementById('cards').innerHTML=ATIVOS.map(a=>{
+    let pico=0, estour=0, usados=0;
+    for(let d=INI; d<=FIM; d++){ const c=carga(a,d); pico=Math.max(pico,c); if(c>a.quantidade) estour++; if(c>0) usados++; }
+    return `<div class="card${estour?' alerta':''}"><div class="nm">${esc(a.ativo)}</div><div class="st">${esc(a.setor||'')} · ${a.quantidade} forma(s) · ciclo ${a.ciclo} dia(s)</div>
+      <div class="nums"><span><b>${num(pico)}</b>pico</span><span><b>${usados}</b>dias com uso</span><span class="estourado"><b>${estour}</b>dias acima</span></div></div>`;
+  }).join('');
+
+  // cabeçalho: meses e dias
+  let meses='', dias='', mesAtual=-1, ini=INI, larg=0;
+  const fechaMes=(i,f)=>{ const x=new Date(i*86400000); meses+=`<div class="mes" style="width:${(f-i+1)*DIA}px">${MESES[x.getUTCMonth()]} ${x.getUTCFullYear()}</div>`; };
+  for(let d=INI; d<=FIM; d++){
+    const x=new Date(d*86400000), wd=x.getUTCDay();
+    if(x.getUTCMonth()!==mesAtual){ if(mesAtual!==-1) fechaMes(ini,d-1); mesAtual=x.getUTCMonth(); ini=d; }
+    dias+=`<div class="dd${(wd===0||wd===6)?' fds':''}${d===hoje?' hoje':''}">${DIA>=20?x.getUTCDate():''}</div>`;
+  }
+  fechaMes(ini,FIM);
+  let h=`<div class="cab"><div class="row"><div class="esq">Ativo / formas</div><div><div class="dias">${meses}</div><div class="dias">${dias}</div></div></div></div>`;
+
+  ATIVOS.forEach((a,ia)=>{
+    let cels='';
+    for(let d=INI; d<=FIM; d++){
+      const c=carga(a,d), wd=new Date(d*86400000).getUTCDay();
+      const cls=c<=0?'':(c>a.quantidade?'acima':(c===a.quantidade?'limite':'folga'));
+      const ehSel=SEL&&SEL.ia===ia&&SEL.d===d;
+      cels+=`<div class="cel ${cls}${(wd===0||wd===6)&&!cls?' fds':''}${d===hoje?' hoje':''}${ehSel?' sel':''}" title="${esc(a.ativo)} · ${fmt(d)}: ${num(c)} de ${a.quantidade} forma(s)" onclick="verDia(${ia},${d})">${c>0&&DIA>=20?num(c):''}</div>`;
+    }
+    h+=`<div class="row"><div class="esq"><span class="a">${esc(a.ativo)}</span><span class="b">${a.quantidade} forma(s) · ${esc(a.setor||'')}</span></div><div class="dias">${cels}</div></div>`;
+  });
+  document.getElementById('grade').innerHTML=h;
+  if(SEL) verDia(SEL.ia,SEL.d,true);
+}
+
+// junta peças iguais (mesmo módulo, peça e data) numa linha com quantidade
+function agrupar(ps){
+  const m={};
+  ps.forEach(p=>{ const k=p.id_produto+'|'+p.nome_peca+'|'+p.data;
+    if(!m[k]) m[k]={id_produto:p.id_produto,nome_peca:p.nome_peca,data:p.data,qtd:0,formas:0,pend:0};
+    m[k].qtd++; m[k].formas+=(p.ocupacao||1); if(!p.ok) m[k].pend++; });
+  return Object.values(m);
+}
+function verDia(ia,d,semRedesenhar){
+  SEL={ia,d};
+  const a=ATIVOS[ia], ps=pecasNoDia(a,d), c=carga(a,d);
+  const box=document.getElementById('detalhe');
+  box.style.display='block';
+  box.innerHTML=`<h3>${esc(a.ativo)} · ${fmt(d)} — ${num(c)} de ${a.quantidade} forma(s)${c>a.quantidade?' <span style="color:var(--vermelho)">· acima da capacidade</span>':''}</h3>`+
+    (ps.length?`<table><tr><th>Módulo</th><th>Peça</th><th>Fabricação</th><th>Qtd.</th><th>Formas ocupadas</th><th>Planejamento</th></tr>${
+      agrupar(ps).map(g=>`<tr><td>${esc(g.id_produto)}</td><td>${esc(g.nome_peca)}</td><td>${esc(g.data)}</td><td>${g.qtd}</td><td>${num(g.formas)}</td><td>${g.pend?'<span style="color:#92400E">'+g.pend+' com pendência</span>':'OK'}</td></tr>`).join('')}</table>`
+      :'<p style="color:var(--suave)">Nenhuma peça ocupando esta forma neste dia.</p>');
+  if(!semRedesenhar) desenhar();
+}
+
+/* Imprime em A3 paisagem com o período inteiro numa folha */
+function imprimirA3(){
+  if(!ATIVOS.length){ alert('Nada para imprimir ainda.'); return; }
+  const antes=DIA;
+  const util=1500-parseInt(getComputedStyle(document.documentElement).getPropertyValue('--col'),10);
+  DIA=Math.max(8,Math.min(40,Math.floor(util/DIAS)));
+  document.documentElement.style.setProperty('--dia',DIA+'px');
+  document.getElementById('info-impressao').textContent='Impresso em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR').slice(0,5)
+    +' · período '+fmt(INI)+' a '+fmt(INI+DIAS-1)+(document.getElementById('so-ok').checked?' · só linhas OK':'');
+  desenhar();
+  const voltar=()=>{ DIA=antes; document.documentElement.style.setProperty('--dia',DIA+'px'); desenhar(); window.removeEventListener('afterprint',voltar); };
+  window.addEventListener('afterprint',voltar);
+  setTimeout(()=>window.print(),100);
+}
+
+carregar();
+setInterval(carregar, 120000);
+</script>
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>

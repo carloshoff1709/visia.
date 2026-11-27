@@ -77,6 +77,30 @@
   .oculto{display:none;}
   @media (max-width:640px){ :root{--col:190px;} .legenda{margin-left:0;} }
   @media (prefers-reduced-motion:reduce){ .seta{transition:none;} }
+  /* impressão A3 paisagem: o gráfico inteiro numa folha, sem barras de rolagem */
+  .so-impressao{display:none;}
+  .ov{position:fixed;inset:0;background:rgba(15,22,38,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .ov .box{background:#fff;border-radius:14px;padding:22px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .ov h2{font-size:16px;margin-bottom:12px;}
+  .ov label.t{display:block;font-size:12px;color:var(--suave);margin:10px 0 4px;}
+  .ov input[type=date]{width:100%;padding:8px;border:1px solid #D8DCE3;border-radius:8px;font-size:14px;}
+  .ov .op{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:8px;border:1px solid var(--linha);border-radius:8px;margin-top:6px;cursor:pointer;}
+  .ov .op small{display:block;color:var(--suave);font-size:11px;}
+  .ov .bts{display:flex;gap:8px;margin-top:16px;}
+  .ov .bts button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}
+  .ov .erro{color:var(--vermelho);font-size:12px;min-height:16px;margin-top:6px;}
+  @media print{
+    @page{size:A3 landscape;margin:8mm;}
+    body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    header a,.barra button,#status{display:none !important;}
+    .barra{padding:4px 0;border:none;} .legenda{margin-left:0;}
+    .area{overflow:visible;max-height:none;margin:0;border:none;border-radius:0;}
+    .esq,.cab{position:static !important;}
+    .row{break-inside:avoid;}
+    .faixa{overflow:hidden;}   /* corta barras que passam do período escolhido */
+    .ov{display:none !important;}
+    .so-impressao{display:block;font-size:11px;color:#6B7280;padding:4px 0;}
+  }
 </style>
 </head>
 <body>
@@ -92,6 +116,7 @@
   <button onclick="zoom(-1)" aria-label="Diminuir zoom">−</button>
   <button onclick="zoom(1)" aria-label="Aumentar zoom">+</button>
   <button onclick="irParaHoje()">Ir para hoje</button>
+  <button onclick="abrirImpressao()">🖨 Imprimir / PDF (A3)</button>
   <div class="legenda">
     <span><span style="width:2px;height:12px;background:var(--vermelho);display:inline-block;"></span>Hoje</span>
     <span><span class="lg-dot" style="background:var(--azul);border-radius:3px;"></span>Módulo na linha</span>
@@ -104,6 +129,7 @@
 </div>
 
 <div id="status">Carregando o planejamento…</div>
+<div class="so-impressao" id="info-impressao"></div>
 <div class="area" id="area"><div class="grade" id="grade"></div></div>
 
 <script>
@@ -260,6 +286,61 @@ function irParaHoje(){
   const hoje=Math.floor(Date.now()/86400000);
   const area=document.getElementById('area');
   area.scrollLeft=Math.max(0,px(hoje)-area.clientWidth/3);
+}
+
+/* ── Impressão A3: escolhe período e se sai só com os módulos ou explodido (com as peças) ── */
+function isoDe(d){ const x=new Date(d*86400000); return x.getUTCFullYear()+'-'+String(x.getUTCMonth()+1).padStart(2,'0')+'-'+String(x.getUTCDate()).padStart(2,'0'); }
+function diaIso(iso){ const p=String(iso||'').split('-'); return p.length===3?Math.floor(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000):null; }
+function abrirImpressao(){
+  if(!MODULOS.length){ alert('Nada para imprimir ainda.'); return; }
+  const ov=document.createElement('div'); ov.className='ov'; ov.id='ov-imp';
+  ov.innerHTML=`<div class="box">
+    <h2>🖨 Imprimir planejamento (A3)</h2>
+    <label class="t">De</label><input type="date" id="imp-de" value="${isoDe(INI+3)}">
+    <label class="t">Até</label><input type="date" id="imp-ate" value="${isoDe(FIM-3)}">
+    <label class="t">Conteúdo</label>
+    <label class="op"><input type="radio" name="imp-tipo" value="mod" checked><span>Só os módulos<small>Uma linha por módulo, com a barra de entrada e saída.</small></span></label>
+    <label class="op"><input type="radio" name="imp-tipo" value="exp"><span>Explodido (com as peças)<small>Cada módulo com as peças e a data de fabricação.</small></span></label>
+    <div class="erro" id="imp-erro"></div>
+    <div class="bts"><button style="background:#EEF0F4;color:#374151;" onclick="document.getElementById('ov-imp').remove()">Cancelar</button>
+      <button style="background:var(--azul);color:#fff;" onclick="imprimirA3()">Gerar</button></div>
+    <p style="font-size:11px;color:#9CA3AF;margin-top:10px;">Na janela de impressão, escolha "Salvar como PDF" para baixar o arquivo.</p>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function imprimirA3(){
+  const de=diaIso(document.getElementById('imp-de').value), ate=diaIso(document.getElementById('imp-ate').value);
+  const erro=document.getElementById('imp-erro');
+  if(de==null||ate==null){ erro.textContent='Escolha as duas datas.'; return; }
+  if(ate<de){ erro.textContent='A data final é antes da inicial.'; return; }
+  const explodido=document.querySelector('input[name=imp-tipo]:checked').value==='exp';
+  document.getElementById('ov-imp').remove();
+
+  // módulos que aparecem no período (na linha, ou com peça fabricada no período)
+  const noPeriodo=m=>{
+    const e=m.ent, sa=(m.sai??m.ent);
+    if(e!=null && e<=ate && sa>=de) return true;
+    return pecasDe(m).some(p=>{ const d=dia(p.data_fab); return d!=null && d>=de && d<=ate; });
+  };
+  const sel=MODULOS.filter(noPeriodo);
+  if(!sel.length){ alert('Nenhum módulo no período escolhido.'); return; }
+
+  const antes={DIA, INI, FIM, MODULOS, ABERTOS:new Set(ABERTOS)};
+  MODULOS=sel; INI=de; FIM=ate;
+  ABERTOS=explodido ? new Set(sel.map(m=>m.id_produto)) : new Set();
+  const util=1500-parseInt(getComputedStyle(document.documentElement).getPropertyValue('--col'),10); // ~404 mm úteis
+  DIA=Math.max(4,Math.min(40,Math.floor(util/(FIM-INI+1))));
+  document.documentElement.style.setProperty('--dia',DIA+'px');
+  document.getElementById('info-impressao').textContent='Período '+fmt(de)+' a '+fmt(ate)+' · '+sel.length+' módulo(s) · '
+    +(explodido?'explodido com as peças':'só módulos')+' · impresso em '+new Date().toLocaleDateString('pt-BR')+' às '+new Date().toLocaleTimeString('pt-BR').slice(0,5);
+  desenhar();
+  const voltar=()=>{
+    DIA=antes.DIA; INI=antes.INI; FIM=antes.FIM; MODULOS=antes.MODULOS; ABERTOS=antes.ABERTOS;
+    document.documentElement.style.setProperty('--dia',DIA+'px'); desenhar(); irParaHoje();
+    window.removeEventListener('afterprint',voltar);
+  };
+  window.addEventListener('afterprint',voltar);
+  setTimeout(()=>window.print(),150);
 }
 
 carregar();
